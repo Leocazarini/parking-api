@@ -10,6 +10,7 @@ from src.auth.router import router as auth_router
 from src.catalog.router import router as catalog_router
 from src.config import settings
 from src.database import get_db
+from src.financial.router import router as financial_router
 from src.parking.router import router as parking_router
 from src.subscribers.router import router as subscribers_router
 from src.users.router import router as users_router
@@ -43,6 +44,7 @@ app.include_router(auth_router)
 app.include_router(catalog_router)
 app.include_router(parking_router)
 app.include_router(subscribers_router)
+app.include_router(financial_router)
 app.include_router(users_router)
 
 
