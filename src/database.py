@@ -1,5 +1,6 @@
 from collections.abc import AsyncGenerator
 
+from fastapi import HTTPException
 from sqlalchemy import MetaData
 from sqlalchemy.ext.asyncio import AsyncConnection, create_async_engine
 
@@ -18,5 +19,14 @@ engine = create_async_engine(settings.DATABASE_URL)
 
 
 async def get_db() -> AsyncGenerator[AsyncConnection, None]:
-    async with engine.begin() as conn:
-        yield conn
+    async with engine.connect() as conn:
+        await conn.begin()
+        try:
+            yield conn
+            await conn.commit()
+        except HTTPException:
+            await conn.commit()
+            raise
+        except Exception:
+            await conn.rollback()
+            raise

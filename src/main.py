@@ -4,6 +4,8 @@ import socketio
 import structlog
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
@@ -12,6 +14,7 @@ from src.catalog.router import router as catalog_router
 from src.config import settings
 from src.database import get_db
 from src.financial.router import router as financial_router
+from src.limiter import limiter
 from src.parking.router import router as parking_router
 from src.socket import sio
 from src.subscribers.router import router as subscribers_router
@@ -33,6 +36,9 @@ fastapi_app = FastAPI(
     lifespan=lifespan,
     openapi_url="/openapi.json" if settings.ENVIRONMENT != "production" else None,
 )
+
+fastapi_app.state.limiter = limiter
+fastapi_app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 fastapi_app.add_middleware(
     CORSMiddleware,

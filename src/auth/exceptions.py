@@ -33,3 +33,11 @@ class ForbiddenError(HTTPException):
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Acesso restrito a administradores",
         )
+
+
+class AccountLockedError(HTTPException):
+    def __init__(self, seconds_remaining: int) -> None:
+        super().__init__(
+            status_code=423,
+            detail=f"Conta bloqueada. Tente novamente em {seconds_remaining} segundos.",
+        )

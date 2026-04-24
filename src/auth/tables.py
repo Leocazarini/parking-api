@@ -13,4 +13,14 @@ user_table = Table(
     Column("is_active", Boolean, nullable=False, server_default="true"),
     Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
     Column("refresh_token_jti", String(36), nullable=True),
+    Column("failed_login_attempts", Integer, nullable=False, server_default="0"),
+    Column("locked_until", TIMESTAMP(timezone=True), nullable=True),
+)
+
+revoked_token = Table(
+    "revoked_token",
+    metadata,
+    Column("jti", String(36), primary_key=True),
+    Column("revoked_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    Column("expires_at", TIMESTAMP(timezone=True), nullable=False),
 )

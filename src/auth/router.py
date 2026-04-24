@@ -1,16 +1,22 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from src.auth import service
-from src.auth.dependencies import get_current_user
+from src.auth.dependencies import get_current_user, require_admin
 from src.auth.schemas import LoginRequest, RefreshRequest, TokenResponse
 from src.database import get_db
+from src.limiter import limiter
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(data: LoginRequest, conn: AsyncConnection = Depends(get_db)):
+@limiter.limit("5/minute")
+async def login(
+    request: Request,
+    data: LoginRequest,
+    conn: AsyncConnection = Depends(get_db),
+):
     user = await service.authenticate(conn, data.username, data.password)
     return await service.issue_tokens(conn, user)
 
@@ -26,3 +32,9 @@ async def logout(
     conn: AsyncConnection = Depends(get_db),
 ):
     await service.revoke_refresh_token(conn, current_user["id"])
+
+
+@router.post("/jobs/purge-tokens", dependencies=[Depends(require_admin)])
+async def purge_tokens(conn: AsyncConnection = Depends(get_db)):
+    deleted = await service.purge_revoked_tokens(conn)
+    return {"deleted": deleted}

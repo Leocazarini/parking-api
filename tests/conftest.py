@@ -1,4 +1,5 @@
 import pytest_asyncio
+from fastapi import HTTPException
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import StaticPool
@@ -62,8 +63,17 @@ async def db_engine():
 @pytest_asyncio.fixture
 async def client(db_engine):
     async def override_get_db():
-        async with db_engine.begin() as conn:
-            yield conn
+        async with db_engine.connect() as conn:
+            await conn.begin()
+            try:
+                yield conn
+                await conn.commit()
+            except HTTPException:
+                await conn.commit()
+                raise
+            except Exception:
+                await conn.rollback()
+                raise
 
     app.dependency_overrides[get_db] = override_get_db
     async with AsyncClient(
