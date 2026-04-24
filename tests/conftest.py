@@ -7,7 +7,7 @@ from src.auth.service import create_access_token, hash_password
 from src.auth.tables import user_table
 from src.catalog.tables import vehicle_color, vehicle_model
 from src.database import get_db, metadata
-from src.main import app
+from src.main import fastapi_app as app
 from src.parking.tables import parking_config
 
 COLORS = [

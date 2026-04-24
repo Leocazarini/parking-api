@@ -12,7 +12,44 @@ from src.parking.exceptions import (
     PlateAlreadyActiveError,
 )
 from src.parking.tables import config_audit_log, parking_config, parking_entry
+from src.socket import sio
 from src.subscribers.service import detect_by_plate
+from src.subscribers.tables import subscriber as subscriber_table
+from src.subscribers.tables import subscriber_vehicle
+
+
+async def _get_yard_state(conn: AsyncConnection) -> dict:
+    rows = (
+        await conn.execute(
+            select(
+                parking_entry.c.plate,
+                vehicle_color.c.name.label("color"),
+                vehicle_model.c.name.label("model"),
+                parking_entry.c.entry_at,
+                parking_entry.c.client_type,
+                subscriber_table.c.status.label("subscriber_status"),
+            )
+            .join(vehicle_color, parking_entry.c.color_id == vehicle_color.c.id)
+            .outerjoin(vehicle_model, parking_entry.c.model_id == vehicle_model.c.id)
+            .outerjoin(subscriber_vehicle, parking_entry.c.plate == subscriber_vehicle.c.plate)
+            .outerjoin(subscriber_table, subscriber_vehicle.c.subscriber_id == subscriber_table.c.id)
+            .where(parking_entry.c.exit_at.is_(None))
+            .order_by(parking_entry.c.entry_at.desc())
+        )
+    ).fetchall()
+
+    vehicles = [
+        {
+            "plate": r.plate,
+            "color": r.color,
+            "model": r.model,
+            "entry_at": r.entry_at.isoformat(),
+            "client_type": r.client_type,
+            "subscriber_status": r.subscriber_status,
+        }
+        for r in rows
+    ]
+    return {"occupied": len(vehicles), "vehicles": vehicles}
 
 
 async def get_active_entries(conn: AsyncConnection) -> list[dict]:
@@ -80,6 +117,35 @@ async def create_entry(
         entry["subscriber_status"] = None
         entry["subscriber_name"] = None
 
+    color_name = (
+        await conn.execute(
+            select(vehicle_color.c.name).where(vehicle_color.c.id == color_id)
+        )
+    ).scalar()
+
+    model_name = None
+    if entry.get("model_id"):
+        model_name = (
+            await conn.execute(
+                select(vehicle_model.c.name).where(vehicle_model.c.id == entry["model_id"])
+            )
+        ).scalar()
+
+    await sio.emit(
+        "spot:entry",
+        {
+            "id": entry_id,
+            "plate": entry["plate"],
+            "color": color_name,
+            "model": model_name,
+            "entry_at": entry["entry_at"].isoformat(),
+            "client_type": entry["client_type"],
+            "subscriber_status": entry["subscriber_status"],
+        },
+        room="yard",
+    )
+    await sio.emit("yard:update", await _get_yard_state(conn), room="yard")
+
     return entry
 
 
@@ -122,7 +188,24 @@ async def create_exit(
     row = await conn.execute(
         select(parking_entry).where(parking_entry.c.id == entry_id)
     )
-    return dict(row.first()._mapping)
+    updated = dict(row.first()._mapping)
+
+    entry_at_aware = entry.entry_at if entry.entry_at.tzinfo else entry.entry_at.replace(tzinfo=timezone.utc)
+    duration_minutes = int((exit_at - entry_at_aware).total_seconds() / 60)
+    await sio.emit(
+        "spot:exit",
+        {
+            "entry_id": entry_id,
+            "plate": entry.plate,
+            "exit_at": exit_at.isoformat(),
+            "amount_charged": f"{amount_charged:.2f}",
+            "duration_minutes": duration_minutes,
+        },
+        room="yard",
+    )
+    await sio.emit("yard:update", await _get_yard_state(conn), room="yard")
+
+    return updated
 
 
 async def get_config(conn: AsyncConnection) -> dict:
