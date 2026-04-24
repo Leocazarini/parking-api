@@ -6,10 +6,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from src.auth.router import router as auth_router
 from src.catalog.router import router as catalog_router
 from src.config import settings
 from src.database import get_db
 from src.parking.router import router as parking_router
+from src.users.router import router as users_router
 
 logger = structlog.get_logger()
 
@@ -36,8 +38,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router)
 app.include_router(catalog_router)
 app.include_router(parking_router)
+app.include_router(users_router)
 
 
 @app.get("/health", tags=["health"])

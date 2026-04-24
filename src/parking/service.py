@@ -33,7 +33,9 @@ async def get_active_entries(conn: AsyncConnection) -> list[dict]:
     return [dict(row._mapping) for row in result]
 
 
-async def create_entry(conn: AsyncConnection, placa: str, color_id: int) -> dict:
+async def create_entry(
+    conn: AsyncConnection, placa: str, color_id: int, operator_id: int | None = None
+) -> dict:
     color_result = await conn.execute(
         select(vehicle_color).where(vehicle_color.c.id == color_id)
     )
@@ -55,6 +57,7 @@ async def create_entry(conn: AsyncConnection, placa: str, color_id: int) -> dict
             color_id=color_id,
             entry_at=entry_at,
             client_type="regular",
+            operator_id=operator_id,
         )
     )
     entry_id = result.inserted_primary_key[0]

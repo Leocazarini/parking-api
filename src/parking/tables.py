@@ -23,4 +23,5 @@ parking_entry = Table(
     Column("exit_at", TIMESTAMP(timezone=True), nullable=True),
     Column("amount_charged", Numeric(10, 2), nullable=True),
     Column("payment_method", String(12), nullable=True),
+    Column("operator_id", Integer, ForeignKey("user.id"), nullable=True),
 )

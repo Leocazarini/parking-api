@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from src.config import settings
 from src.database import metadata
+import src.auth.tables  # noqa: F401
 import src.catalog.tables  # noqa: F401
 import src.parking.tables  # noqa: F401
 

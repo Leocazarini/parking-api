@@ -3,6 +3,8 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import StaticPool
 
+from src.auth.service import create_access_token, hash_password
+from src.auth.tables import user_table
 from src.catalog.tables import vehicle_color, vehicle_model
 from src.database import get_db, metadata
 from src.main import app
@@ -69,3 +71,57 @@ async def client(db_engine):
     ) as ac:
         yield ac
     app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture
+async def admin_user(db_engine):
+    async with db_engine.begin() as conn:
+        result = await conn.execute(
+            user_table.insert().values(
+                username="admin",
+                email="admin@test.com",
+                hashed_password=hash_password("admin123"),
+                role="admin",
+                is_active=True,
+            )
+        )
+        user_id = result.inserted_primary_key[0]
+    return {"id": user_id, "username": "admin", "password": "admin123", "role": "admin"}
+
+
+@pytest_asyncio.fixture
+async def operator_user(db_engine):
+    async with db_engine.begin() as conn:
+        result = await conn.execute(
+            user_table.insert().values(
+                username="operador",
+                email="operador@test.com",
+                hashed_password=hash_password("op123"),
+                role="operator",
+                is_active=True,
+            )
+        )
+        user_id = result.inserted_primary_key[0]
+    return {"id": user_id, "username": "operador", "password": "op123", "role": "operator"}
+
+
+@pytest_asyncio.fixture
+async def admin_token(admin_user):
+    return create_access_token(user_id=admin_user["id"], role="admin")
+
+
+@pytest_asyncio.fixture
+async def operator_token(operator_user):
+    return create_access_token(user_id=operator_user["id"], role="operator")
+
+
+@pytest_asyncio.fixture
+async def auth_client(client, admin_token):
+    client.headers["Authorization"] = f"Bearer {admin_token}"
+    return client
+
+
+@pytest_asyncio.fixture
+async def operator_client(client, operator_token):
+    client.headers["Authorization"] = f"Bearer {operator_token}"
+    return client

@@ -54,6 +54,7 @@ class EntryResponse(BaseModel):
     exit_at: Optional[datetime] = None
     amount_charged: Optional[Decimal] = None
     payment_method: Optional[str] = None
+    operator_id: Optional[int] = None
 
 
 class ExitResponse(BaseModel):
