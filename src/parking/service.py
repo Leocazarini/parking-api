@@ -11,7 +11,7 @@ from src.parking.exceptions import (
     InvalidColorError,
     PlateAlreadyActiveError,
 )
-from src.parking.tables import parking_config, parking_entry
+from src.parking.tables import config_audit_log, parking_config, parking_entry
 from src.subscribers.service import detect_by_plate
 
 
@@ -135,12 +135,27 @@ async def get_config(conn: AsyncConnection) -> dict:
     return dict(config._mapping)
 
 
-async def update_config(conn: AsyncConnection, data: dict) -> dict:
+async def update_config(conn: AsyncConnection, user_id: int, data: dict) -> dict:
     fields = {k: v for k, v in data.items() if v is not None}
-    if fields:
-        await conn.execute(
-            update(parking_config).where(parking_config.c.id == 1).values(**fields)
-        )
+    if not fields:
+        return await get_config(conn)
+
+    current = await get_config(conn)
+    await conn.execute(
+        update(parking_config).where(parking_config.c.id == 1).values(**fields)
+    )
+
+    for field, new_val in fields.items():
+        if str(current[field]) != str(new_val):
+            await conn.execute(
+                config_audit_log.insert().values(
+                    changed_by=user_id,
+                    field=field,
+                    old_value=str(current[field]),
+                    new_value=str(new_val),
+                )
+            )
+
     return await get_config(conn)
 
 

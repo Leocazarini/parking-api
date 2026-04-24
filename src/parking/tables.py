@@ -1,4 +1,4 @@
-from sqlalchemy import TIMESTAMP, Column, ForeignKey, Integer, Numeric, String, Table, func
+from sqlalchemy import TIMESTAMP, Column, ForeignKey, Integer, Numeric, String, Table, Text, func
 
 from src.database import metadata
 
@@ -24,4 +24,20 @@ parking_entry = Table(
     Column("amount_charged", Numeric(10, 2), nullable=True),
     Column("payment_method", String(12), nullable=True),
     Column("operator_id", Integer, ForeignKey("user.id"), nullable=True),
+)
+
+config_audit_log = Table(
+    "config_audit_log",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("changed_by", Integer, ForeignKey("user.id"), nullable=False),
+    Column(
+        "changed_at",
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    ),
+    Column("field", String(50), nullable=False),
+    Column("old_value", Text, nullable=True),
+    Column("new_value", Text, nullable=True),
 )

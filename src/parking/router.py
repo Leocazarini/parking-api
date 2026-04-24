@@ -56,6 +56,6 @@ async def get_config(conn: AsyncConnection = Depends(get_db)):
 async def update_config(
     data: ConfigUpdate,
     conn: AsyncConnection = Depends(get_db),
-    _: dict = Depends(require_admin),
+    current_user: dict = Depends(require_admin),
 ):
-    return await service.update_config(conn, data.model_dump())
+    return await service.update_config(conn, current_user["id"], data.model_dump())
