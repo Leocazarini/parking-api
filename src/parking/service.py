@@ -12,6 +12,7 @@ from src.parking.exceptions import (
     PlateAlreadyActiveError,
 )
 from src.parking.tables import parking_config, parking_entry
+from src.subscribers.service import detect_by_plate
 
 
 async def get_active_entries(conn: AsyncConnection) -> list[dict]:
@@ -50,13 +51,18 @@ async def create_entry(
     if active.first():
         raise PlateAlreadyActiveError(placa)
 
+    sub_info = await detect_by_plate(conn, placa)
+    client_type = "subscriber" if sub_info else "regular"
+    model_id = sub_info["model_id"] if sub_info else None
+
     entry_at = datetime.now(timezone.utc)
     result = await conn.execute(
         parking_entry.insert().values(
             plate=placa,
             color_id=color_id,
+            model_id=model_id,
             entry_at=entry_at,
-            client_type="regular",
+            client_type=client_type,
             operator_id=operator_id,
         )
     )
@@ -65,7 +71,16 @@ async def create_entry(
     row = await conn.execute(
         select(parking_entry).where(parking_entry.c.id == entry_id)
     )
-    return dict(row.first()._mapping)
+    entry = dict(row.first()._mapping)
+
+    if sub_info:
+        entry["subscriber_status"] = sub_info["status"]
+        entry["subscriber_name"] = sub_info["name"]
+    else:
+        entry["subscriber_status"] = None
+        entry["subscriber_name"] = None
+
+    return entry
 
 
 async def create_exit(
@@ -88,7 +103,15 @@ async def create_exit(
         raise ConfigNotFoundError()
 
     exit_at = datetime.now(timezone.utc)
-    amount_charged = calcular_valor(entry.entry_at, exit_at, dict(config._mapping))
+
+    if entry.client_type == "subscriber":
+        sub_info = await detect_by_plate(conn, entry.plate)
+        if sub_info and sub_info["status"] == "active":
+            amount_charged = Decimal("0.00")
+        else:
+            amount_charged = calcular_valor(entry.entry_at, exit_at, dict(config._mapping))
+    else:
+        amount_charged = calcular_valor(entry.entry_at, exit_at, dict(config._mapping))
 
     await conn.execute(
         update(parking_entry)

@@ -55,6 +55,8 @@ class EntryResponse(BaseModel):
     amount_charged: Optional[Decimal] = None
     payment_method: Optional[str] = None
     operator_id: Optional[int] = None
+    subscriber_status: Optional[str] = None
+    subscriber_name: Optional[str] = None
 
 
 class ExitResponse(BaseModel):
