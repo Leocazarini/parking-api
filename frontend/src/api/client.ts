@@ -36,6 +36,15 @@ api.interceptors.response.use(
     const original = error.config
 
     if (error.response?.status !== 401 || original._retry) {
+      if (error.response && error.response.status !== 401) {
+        window.dispatchEvent(new CustomEvent('api:error', {
+          detail: { status: error.response.status, data: error.response.data },
+        }))
+      } else if (!error.response && error.request) {
+        window.dispatchEvent(new CustomEvent('api:error', {
+          detail: { status: 0, data: null },
+        }))
+      }
       return Promise.reject(error)
     }
 

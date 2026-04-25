@@ -20,16 +20,6 @@ import type { Subscriber, SubscriberDetail, Color, VehicleModel } from '../types
 // Helpers
 // ──────────────────────────────────────────────────────────────────────────────
 
-function apiError(err: unknown, fallback: string): string {
-  if (err && typeof err === 'object' && 'response' in err) {
-    const r = (err as { response: { status: number; data?: { detail?: string } } }).response
-    const detail = r.data?.detail
-    const status = r.status
-    if (detail) return `[${status}] ${detail}`
-    return `[${status}] ${fallback}`
-  }
-  return fallback
-}
 
 function fmtCPF(cpf: string) {
   return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
@@ -277,7 +267,6 @@ function DetailPanel({ sub, onClose }: { sub: SubscriberDetail; onClose: () => v
       toast('Veículo adicionado', 'success')
       setAddVehicle(false)
     },
-    onError: (err) => toast(apiError(err, 'Erro ao adicionar veículo'), 'error'),
   })
 
   const removeVehicleMut = useMutation({
@@ -297,7 +286,6 @@ function DetailPanel({ sub, onClose }: { sub: SubscriberDetail; onClose: () => v
       toast('Pagamento registrado', 'success')
       setAddPayment(false)
     },
-    onError: (err) => toast(apiError(err, 'Erro ao registrar pagamento'), 'error'),
   })
 
   return (
@@ -538,13 +526,11 @@ export default function Subscribers() {
       toast('Mensalista criado', 'success')
       setCreateOpen(false)
     },
-    onError: (err) => toast(apiError(err, 'Erro ao criar mensalista'), 'error'),
   })
 
   const overdueMut = useMutation({
     mutationFn: runOverdueCheck,
     onSuccess: (r) => toast(`Verificação concluída: ${r.marked_overdue} marcados como inadimplentes`, 'info'),
-    onError: (err) => toast(apiError(err, 'Erro ao executar verificação'), 'error'),
   })
 
   const filtered = subscribers

@@ -36,16 +36,6 @@ export default function Users() {
       setCreateOpen(false)
       reset()
     },
-    onError: (err: unknown) => {
-      const msg = (() => {
-        if (err && typeof err === 'object' && 'response' in err) {
-          const r = (err as { response: { data?: { detail?: string } } }).response
-          return r.data?.detail ?? 'Erro ao criar usuário.'
-        }
-        return 'Erro de conexão.'
-      })()
-      toast(msg, 'error')
-    },
   })
 
   const toggleActive = useMutation({

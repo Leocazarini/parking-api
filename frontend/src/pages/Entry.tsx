@@ -135,18 +135,6 @@ export default function Entry() {
       qc.invalidateQueries({ queryKey: ['active-entries'] })
       toast(`Entrada registrada: ${data.plate}`, 'success')
     },
-    onError: (err: unknown) => {
-      const msg = (() => {
-        if (err && typeof err === 'object' && 'response' in err) {
-          const r = (err as { response: { status: number; data?: { detail?: string } } }).response
-          if (r.status === 409) return 'Veículo já está no pátio.'
-          if (r.status === 422) return 'Placa inválida ou dados incorretos.'
-          return r.data?.detail ?? 'Erro ao registrar entrada.'
-        }
-        return 'Erro de conexão.'
-      })()
-      toast(msg, 'error')
-    },
   })
 
   const handleNew = () => {

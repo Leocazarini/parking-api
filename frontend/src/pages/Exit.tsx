@@ -81,16 +81,6 @@ export default function Exit() {
       qc.invalidateQueries({ queryKey: ['active-entries'] })
       toast(`Saída registrada: ${data.plate}`, 'success')
     },
-    onError: (err: unknown) => {
-      const msg = (() => {
-        if (err && typeof err === 'object' && 'response' in err) {
-          const r = (err as { response: { status: number; data?: { detail?: string } } }).response
-          return r.data?.detail ?? 'Erro ao registrar saída.'
-        }
-        return 'Erro de conexão.'
-      })()
-      toast(msg, 'error')
-    },
   })
 
   const filtered = useMemo(() => {

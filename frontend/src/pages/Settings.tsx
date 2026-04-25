@@ -49,7 +49,6 @@ export default function Settings() {
         tolerance_minutes: updated.tolerance_minutes,
       })
     },
-    onError: () => toast('Erro ao salvar configurações', 'error'),
   })
 
   if (isLoading) {

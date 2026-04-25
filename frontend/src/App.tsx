@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ToastProvider } from './hooks/useToast'
 import { Layout } from './components/Layout'
+import { ErrorModal } from './components/ErrorModal'
 
 const Login = lazy(() => import('./pages/Login'))
 const Yard = lazy(() => import('./pages/Yard'))
@@ -102,6 +103,7 @@ export default function App() {
         <AuthProvider>
           <BrowserRouter>
             <AppRoutes />
+            <ErrorModal />
           </BrowserRouter>
         </AuthProvider>
       </ToastProvider>
