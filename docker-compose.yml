@@ -1,4 +1,12 @@
 services:
+  bootstrap:
+    build: .
+    env_file: .env
+    command: python scripts/create_admin.py
+    depends_on:
+      db:
+        condition: service_healthy
+
   backend:
     build: .
     ports:
@@ -7,6 +15,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
     volumes:
       - ./src:/app/src
 

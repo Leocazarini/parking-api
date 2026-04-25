@@ -1,33 +1,66 @@
 #!/usr/bin/env python3
 """Cria o primeiro usuário admin no banco de dados.
 
+As variáveis FIRST_ADMIN_USERNAME, FIRST_ADMIN_EMAIL e FIRST_ADMIN_PASSWORD
+devem estar definidas no arquivo .env na raiz do projeto.
+
+Se já houver qualquer usuário cadastrado, o script encerra sem fazer nada
+(comportamento esperado nas reinicializações do container).
+
 Uso:
     python scripts/create_admin.py
-    python scripts/create_admin.py --username admin --email admin@example.com --password senha123
 """
-import argparse
 import asyncio
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
 
-async def main(username: str, email: str, password: str) -> None:
-    from sqlalchemy import select
+def load_admin_config() -> tuple[str, str, str]:
+    from pydantic import Field
+    from pydantic_settings import BaseSettings, SettingsConfigDict
+
+    class AdminBootstrapSettings(BaseSettings):
+        FIRST_ADMIN_USERNAME: str = Field(default="admin")
+        FIRST_ADMIN_EMAIL: str = Field(default="admin@parking.local")
+        FIRST_ADMIN_PASSWORD: str = Field(...)
+
+        model_config = SettingsConfigDict(
+            env_file=str(PROJECT_ROOT / ".env"),
+            extra="ignore",
+        )
+
+    try:
+        cfg = AdminBootstrapSettings()  # type: ignore[call-arg]
+    except Exception:
+        print(
+            "Erro: FIRST_ADMIN_PASSWORD não encontrada no .env.\n"
+            "Adicione ao .env:\n"
+            "  FIRST_ADMIN_PASSWORD=sua_senha_aqui"
+        )
+        sys.exit(1)
+
+    return cfg.FIRST_ADMIN_USERNAME, cfg.FIRST_ADMIN_EMAIL, cfg.FIRST_ADMIN_PASSWORD
+
+
+async def main() -> None:
+    from sqlalchemy import func, select
 
     from src.auth.service import hash_password
     from src.auth.tables import user_table
     from src.database import engine
 
     async with engine.begin() as conn:
-        existing = await conn.execute(
-            select(user_table).where(user_table.c.username == username)
-        )
-        if existing.first():
-            print(f"Erro: usuário '{username}' já existe.")
-            sys.exit(1)
+        result = await conn.execute(select(func.count()).select_from(user_table))
+        if result.scalar() > 0:
+            print("Bootstrap: sistema já possui usuários cadastrados. Nada a fazer.")
+            return
 
+    username, email, password = load_admin_config()
+
+    async with engine.begin() as conn:
         await conn.execute(
             user_table.insert().values(
                 username=username,
@@ -42,10 +75,4 @@ async def main(username: str, email: str, password: str) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Cria usuário admin")
-    parser.add_argument("--username", default="admin")
-    parser.add_argument("--email", default="admin@parking.local")
-    parser.add_argument("--password", required=True)
-    args = parser.parse_args()
-
-    asyncio.run(main(args.username, args.email, args.password))
+    asyncio.run(main())
