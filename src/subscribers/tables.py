@@ -24,6 +24,13 @@ subscriber = Table(
     Column("email", String(255), nullable=True),
     Column("status", String(12), nullable=False, server_default="active"),
     Column("due_day", Integer, nullable=False),
+    Column("zip_code", String(9), nullable=True),
+    Column("street", String(255), nullable=True),
+    Column("number", String(10), nullable=True),
+    Column("complement", String(100), nullable=True),
+    Column("neighborhood", String(100), nullable=True),
+    Column("city", String(100), nullable=True),
+    Column("state", String(2), nullable=True),
     Column(
         "created_at",
         TIMESTAMP(timezone=True),

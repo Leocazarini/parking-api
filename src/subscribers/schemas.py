@@ -14,6 +14,13 @@ class SubscriberCreate(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     due_day: int
+    zip_code: Optional[str] = None
+    street: Optional[str] = None
+    number: Optional[str] = None
+    complement: Optional[str] = None
+    neighborhood: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
 
     @field_validator("cpf", mode="before")
     @classmethod
@@ -36,6 +43,13 @@ class SubscriberUpdate(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     due_day: Optional[int] = None
+    zip_code: Optional[str] = None
+    street: Optional[str] = None
+    number: Optional[str] = None
+    complement: Optional[str] = None
+    neighborhood: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
 
     @field_validator("due_day")
     @classmethod
@@ -53,6 +67,13 @@ class SubscriberResponse(BaseModel):
     email: Optional[str] = None
     status: str
     due_day: int
+    zip_code: Optional[str] = None
+    street: Optional[str] = None
+    number: Optional[str] = None
+    complement: Optional[str] = None
+    neighborhood: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
     created_at: datetime
 
 
