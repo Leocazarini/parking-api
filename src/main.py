@@ -2,6 +2,8 @@ from contextlib import asynccontextmanager
 
 import socketio
 import structlog
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
@@ -12,21 +14,32 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from src.auth.router import router as auth_router
 from src.catalog.router import router as catalog_router
 from src.config import settings
-from src.database import get_db
+from src.database import engine, get_db
 from src.financial.router import router as financial_router
 from src.limiter import limiter
 from src.parking.router import router as parking_router
 from src.socket import sio
 from src.subscribers.router import router as subscribers_router
+from src.subscribers.service import check_overdue
 from src.users.router import router as users_router
 
 logger = structlog.get_logger()
 
 
+async def _run_overdue_check() -> None:
+    async with engine.begin() as conn:
+        result = await check_overdue(conn)
+    logger.info("overdue_check_completed", **result)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(_run_overdue_check, CronTrigger(hour=0, minute=0))
+    scheduler.start()
     logger.info("startup", environment=settings.ENVIRONMENT)
     yield
+    scheduler.shutdown(wait=False)
     logger.info("shutdown")
 
 
