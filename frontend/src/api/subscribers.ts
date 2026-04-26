@@ -49,6 +49,11 @@ export async function deleteSubscriber(id: number): Promise<void> {
   await api.delete(`/subscribers/${id}`)
 }
 
+export async function reactivateSubscriber(id: number): Promise<SubscriberDetail> {
+  const { data } = await api.patch<SubscriberDetail>(`/subscribers/${id}/reactivate`)
+  return data
+}
+
 export async function getSubscriberVehicles(id: number): Promise<SubscriberVehicle[]> {
   const { data } = await api.get<SubscriberVehicle[]>(`/subscribers/${id}/vehicles`)
   return data

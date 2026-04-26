@@ -64,7 +64,7 @@ export interface VehicleModel {
   name: string
 }
 
-export type SubscriberStatus = 'active' | 'overdue' | 'suspended'
+export type SubscriberStatus = 'active' | 'overdue'
 export type PaymentMethod = 'dinheiro' | 'credito' | 'debito' | 'pix'
 
 export interface Subscriber {
@@ -74,6 +74,7 @@ export interface Subscriber {
   phone: string | null
   email: string | null
   status: SubscriberStatus
+  is_active: boolean
   due_day: number
   zip_code: string | null
   street: string | null
@@ -123,6 +124,7 @@ export interface RevenueResponse {
     subscriber: string
   }
   entries_count: number
+  subscriber_payments_count: number
   average_duration_minutes: number
 }
 
@@ -145,6 +147,12 @@ export interface SubscriberRevenue {
   total_received: string
   payments_count: number
   overdue_count: number
+}
+
+export interface HourlyRevenueItem {
+  hour: number
+  today: string
+  yesterday: string
 }
 
 export interface YardUpdate {

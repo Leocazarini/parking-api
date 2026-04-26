@@ -1,5 +1,5 @@
 import calendar
-from datetime import date
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncConnection
@@ -9,6 +9,7 @@ from src.database import get_db
 from src.financial import service
 from src.financial.schemas import (
     DailyRevenueItem,
+    HourlyRevenueItem,
     ParkingSummaryResponse,
     RevenueResponse,
     SubscriberRevenueResponse,
@@ -57,6 +58,17 @@ async def get_parking_summary(
             detail="end_date não pode ser anterior a start_date",
         )
     return await service.get_parking_summary(conn, start_date, end_date)
+
+
+@router.get("/revenue/hourly", response_model=list[HourlyRevenueItem])
+async def get_hourly_revenue(
+    ref_date: date = Query(default=None),
+    conn: AsyncConnection = Depends(get_db),
+    _: dict = Depends(require_admin),
+):
+    if ref_date is None:
+        ref_date = datetime.now(timezone.utc).date()
+    return await service.get_hourly_revenue(conn, ref_date)
 
 
 @router.get("/subscribers/revenue", response_model=SubscriberRevenueResponse)

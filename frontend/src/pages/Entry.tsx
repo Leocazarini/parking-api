@@ -8,7 +8,7 @@ import { useToast } from '../hooks/useToast'
 import { StatusBadge } from '../components/StatusBadge'
 import type { Color, VehicleModel, EntryResponse } from '../types'
 
-const PLATE_MERCOSUL = /^[A-Z]{3}[0-9][A-Z][0-9]{2}$/
+const PLATE_MERCOSUL = /^[A-Z]{3}[0-9][A-F][0-9]{2}$/
 const PLATE_OLD = /^[A-Z]{3}[0-9]{4}$/
 
 const COLOR_HEX: Record<string, string> = {

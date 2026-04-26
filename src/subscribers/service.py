@@ -76,8 +76,18 @@ async def delete_subscriber(conn: AsyncConnection, subscriber_id: int) -> None:
     await conn.execute(
         update(subscriber)
         .where(subscriber.c.id == subscriber_id)
-        .values(status="suspended")
+        .values(is_active=False)
     )
+
+
+async def reactivate_subscriber(conn: AsyncConnection, subscriber_id: int) -> dict:
+    await _require_subscriber(conn, subscriber_id)
+    await conn.execute(
+        update(subscriber)
+        .where(subscriber.c.id == subscriber_id)
+        .values(is_active=True)
+    )
+    return await get_subscriber(conn, subscriber_id)
 
 
 async def list_vehicles(conn: AsyncConnection, subscriber_id: int) -> list[dict]:
@@ -164,7 +174,10 @@ async def detect_by_plate(conn: AsyncConnection, plate: str) -> Optional[dict]:
             subscriber.c.status,
         )
         .join(subscriber, subscriber_vehicle.c.subscriber_id == subscriber.c.id)
-        .where(subscriber_vehicle.c.plate == plate)
+        .where(
+            subscriber_vehicle.c.plate == plate,
+            subscriber.c.is_active == True,  # noqa: E712
+        )
     )
     row = result.first()
     return dict(row._mapping) if row else None
@@ -177,7 +190,10 @@ async def check_overdue(
     current_month = date(today.year, today.month, 1)
 
     result = await conn.execute(
-        select(subscriber).where(subscriber.c.status == "active")
+        select(subscriber).where(
+            subscriber.c.is_active == True,  # noqa: E712
+            subscriber.c.status == "active",
+        )
     )
     active_subs = result.fetchall()
 
@@ -215,7 +231,7 @@ async def _check_and_activate(
         select(subscriber).where(subscriber.c.id == subscriber_id)
     )
     sub = sub_row.first()
-    if not sub or sub.status != "overdue":
+    if not sub or sub.status != "overdue" or not sub.is_active:
         return
 
     today = date.today()

@@ -3,7 +3,7 @@ import type { SubscriberStatus } from '../types'
 const LABELS: Record<string, string> = {
   active: 'Ativo',
   overdue: 'Inadimplente',
-  suspended: 'Suspenso',
+  inactive: 'Desativado',
   regular: 'Avulso',
   subscriber: 'Mensalista',
   admin: 'Admin',

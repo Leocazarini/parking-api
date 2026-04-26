@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  CartesianGrid, Legend,
 } from 'recharts'
 import { TrendingUp, Car, Clock, Star } from 'lucide-react'
-import { getRevenue, getDailyRevenue, getParkingSummary, getSubscriberRevenue } from '../api/financial'
-import type { RevenueResponse, DailyRevenueItem, ParkingSummary, SubscriberRevenue } from '../types'
+import { getRevenue, getDailyRevenue, getParkingSummary, getSubscriberRevenue, getHourlyRevenue } from '../api/financial'
+import type { RevenueResponse, DailyRevenueItem, ParkingSummary, SubscriberRevenue, HourlyRevenueItem } from '../types'
 
 function fmtBRL(v: string | number) {
   return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -43,6 +44,7 @@ export default function Financial() {
   const [startDate, setStartDate] = useState(fmtDate(firstOfMonth))
   const [endDate, setEndDate] = useState(fmtDate(today))
   const [month, setMonth] = useState(currentMonth)
+  const [refDate, setRefDate] = useState(fmtDate(today))
 
   const { data: revenue } = useQuery<RevenueResponse>({
     queryKey: ['revenue', startDate, endDate],
@@ -62,6 +64,11 @@ export default function Financial() {
   const { data: subRevenue } = useQuery<SubscriberRevenue>({
     queryKey: ['sub-revenue', month],
     queryFn: () => getSubscriberRevenue(month),
+  })
+
+  const { data: hourly = [] } = useQuery<HourlyRevenueItem[]>({
+    queryKey: ['hourly-revenue', refDate],
+    queryFn: () => getHourlyRevenue(refDate),
   })
 
   const chartData = daily.map((d) => ({
@@ -91,8 +98,12 @@ export default function Financial() {
             <input type="date" className="form-input" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           </div>
           <div className="form-group" style={{ margin: 0, flex: 1, minWidth: 140 }}>
-            <label className="form-label">Mês (gráfico)</label>
+            <label className="form-label">Mês (gráfico diário)</label>
             <input type="month" className="form-input" value={month} onChange={(e) => setMonth(e.target.value)} />
+          </div>
+          <div className="form-group" style={{ margin: 0, flex: 1, minWidth: 140 }}>
+            <label className="form-label">Dia (gráfico horário)</label>
+            <input type="date" className="form-input" value={refDate} onChange={(e) => setRefDate(e.target.value)} />
           </div>
         </div>
       </div>
@@ -103,25 +114,32 @@ export default function Financial() {
           <TrendingUp size={18} color="var(--amber)" style={{ marginBottom: 8 }} />
           <div className="stat-label">Receita Total</div>
           <div className="stat-value money">{revenue ? fmtBRL(revenue.total) : '—'}</div>
-          <div className="stat-sub">{revenue?.entries_count ?? '—'} saídas</div>
+          <div className="stat-sub">{revenue?.entries_count ?? '—'} saídas avulsos</div>
+        </div>
+
+        <div className="stat-card" style={{ '--accent-color': 'var(--orange)' } as React.CSSProperties}>
+          <Car size={18} color="var(--orange)" style={{ marginBottom: 8 }} />
+          <div className="stat-label">Clientes Avulsos</div>
+          <div className="stat-value money">{revenue ? fmtBRL(revenue.by_client_type.regular) : '—'}</div>
+          <div className="stat-sub">{summary?.regular_entries ?? '—'} entradas</div>
         </div>
 
         <div className="stat-card" style={{ '--accent-color': 'var(--green)' } as React.CSSProperties}>
           <Star size={18} color="var(--green)" style={{ marginBottom: 8 }} />
           <div className="stat-label">Mensalistas</div>
           <div className="stat-value money">{revenue ? fmtBRL(revenue.by_client_type.subscriber) : '—'}</div>
-          <div className="stat-sub">avulsos: {revenue ? fmtBRL(revenue.by_client_type.regular) : '—'}</div>
+          <div className="stat-sub">{revenue?.subscriber_payments_count ?? '—'} mensalidades pagas</div>
         </div>
 
         <div className="stat-card" style={{ '--accent-color': 'var(--blue)' } as React.CSSProperties}>
           <Car size={18} color="var(--blue)" style={{ marginBottom: 8 }} />
           <div className="stat-label">Entradas</div>
           <div className="stat-value">{summary?.total_entries ?? '—'}</div>
-          <div className="stat-sub">avulsos: {summary?.regular_entries ?? '—'}</div>
+          <div className="stat-sub">mensalistas: {summary?.subscriber_entries ?? '—'}</div>
         </div>
 
-        <div className="stat-card" style={{ '--accent-color': 'var(--orange)' } as React.CSSProperties}>
-          <Clock size={18} color="var(--orange)" style={{ marginBottom: 8 }} />
+        <div className="stat-card" style={{ '--accent-color': 'var(--text-muted)' } as React.CSSProperties}>
+          <Clock size={18} color="var(--text-muted)" style={{ marginBottom: 8 }} />
           <div className="stat-label">Permanência média</div>
           <div className="stat-value money">
             {summary ? `${Math.round(summary.average_stay_minutes)}min` : '—'}
@@ -167,6 +185,94 @@ export default function Financial() {
             </ResponsiveContainer>
           </div>
         )}
+      </div>
+
+      {/* Hourly chart */}
+      <div className="card mb-16">
+        <div className="card-header">
+          <div>
+            <div className="card-title">Receita por Hora</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+              Comparativo: {new Date(refDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+              {' vs '}
+              {new Date(new Date(refDate + 'T12:00:00').getTime() - 86400000).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+            </div>
+          </div>
+        </div>
+        <div className="chart-wrapper">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart
+              data={hourly.map((h) => ({
+                hour: h.hour,
+                Hoje: Number(h.today),
+                Ontem: Number(h.yesterday),
+              }))}
+              margin={{ top: 8, right: 8, bottom: 4, left: 4 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+              <XAxis
+                dataKey="hour"
+                tickFormatter={(h) => `${String(h).padStart(2, '0')}h`}
+                tick={{ fontSize: 11, fill: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}
+                axisLine={false}
+                tickLine={false}
+                interval={2}
+              />
+              <YAxis
+                tickFormatter={(v) => `R$${v}`}
+                tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
+                axisLine={false}
+                tickLine={false}
+                width={56}
+              />
+              <Tooltip
+                content={({ active, payload, label }) => {
+                  if (!active || !payload?.length) return null
+                  return (
+                    <div style={{
+                      background: 'var(--surface-2)', border: '1px solid var(--border-light)',
+                      borderRadius: 8, padding: '10px 14px', fontSize: 13,
+                    }}>
+                      <div style={{ color: 'var(--text-muted)', marginBottom: 6, fontFamily: 'JetBrains Mono' }}>
+                        {String(label).padStart(2, '0')}:00
+                      </div>
+                      {payload.map((p) => (
+                        <div key={p.name} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 2 }}>
+                          <span style={{ color: p.color as string, fontSize: 12 }}>{p.name}</span>
+                          <span style={{ fontFamily: 'JetBrains Mono', fontWeight: 700, color: p.color as string }}>
+                            {fmtBRL(p.value as number)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                }}
+                cursor={{ stroke: 'var(--border-light)', strokeWidth: 1 }}
+              />
+              <Legend
+                wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
+                formatter={(value) => <span style={{ color: 'var(--text-muted)' }}>{value}</span>}
+              />
+              <Line
+                type="monotone"
+                dataKey="Hoje"
+                stroke="var(--amber)"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4, fill: 'var(--amber)' }}
+              />
+              <Line
+                type="monotone"
+                dataKey="Ontem"
+                stroke="var(--blue)"
+                strokeWidth={2}
+                strokeDasharray="4 3"
+                dot={false}
+                activeDot={{ r: 4, fill: 'var(--blue)' }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
       {/* Payment method breakdown */}

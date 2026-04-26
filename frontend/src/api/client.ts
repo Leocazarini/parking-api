@@ -30,12 +30,21 @@ function processQueue(token: string | null) {
   refreshQueue = []
 }
 
+function forceLogout() {
+  setAccessToken(null)
+  localStorage.removeItem('refresh_token')
+  window.dispatchEvent(new Event('auth:logout'))
+  if (window.location.pathname !== '/login') {
+    window.location.replace('/login')
+  }
+}
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const original = error.config
 
-    if (error.response?.status !== 401 || original._retry) {
+    if (error.response?.status !== 401 || original?._retry) {
       if (error.response && error.response.status !== 401) {
         window.dispatchEvent(new CustomEvent('api:error', {
           detail: { status: error.response.status, data: error.response.data },
@@ -44,6 +53,8 @@ api.interceptors.response.use(
         window.dispatchEvent(new CustomEvent('api:error', {
           detail: { status: 0, data: null },
         }))
+      } else if (original?._retry && error.response?.status === 401) {
+        forceLogout()
       }
       return Promise.reject(error)
     }
@@ -76,9 +87,7 @@ api.interceptors.response.use(
       return api(original)
     } catch {
       processQueue(null)
-      setAccessToken(null)
-      localStorage.removeItem('refresh_token')
-      window.dispatchEvent(new Event('auth:logout'))
+      forceLogout()
       return Promise.reject(error)
     } finally {
       isRefreshing = false

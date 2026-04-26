@@ -22,6 +22,7 @@ class RevenueResponse(BaseModel):
     by_payment_method: ByPaymentMethod
     by_client_type: ByClientType
     entries_count: int
+    subscriber_payments_count: int
     average_duration_minutes: float
 
 
@@ -44,3 +45,9 @@ class SubscriberRevenueResponse(BaseModel):
     total_received: Decimal
     payments_count: int
     overdue_count: int
+
+
+class HourlyRevenueItem(BaseModel):
+    hour: int
+    today: Decimal
+    yesterday: Decimal

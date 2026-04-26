@@ -696,6 +696,7 @@ h1, h2, h3, h4, .heading {
 
 .badge-active  { color: var(--green);  background: var(--green-bg);  border: 1px solid var(--green-border); }
 .badge-overdue { color: var(--red);    background: var(--red-bg);    border: 1px solid var(--red-border); }
+.badge-inactive { color: var(--text-muted); background: var(--surface-raised); border: 1px solid var(--border); }
 .badge-suspended { color: var(--orange); background: var(--orange-bg); border: 1px solid var(--orange-border); }
 .badge-regular { color: var(--blue);   background: var(--blue-bg);   border: 1px solid var(--blue-border); }
 .badge-subscriber { color: var(--amber); background: var(--amber-bg); border: 1px solid var(--amber-border); }

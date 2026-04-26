@@ -77,6 +77,15 @@ async def delete_subscriber(
     await service.delete_subscriber(conn, subscriber_id)
 
 
+@router.patch("/{subscriber_id}/reactivate", response_model=SubscriberDetail)
+async def reactivate_subscriber(
+    subscriber_id: int,
+    conn: AsyncConnection = Depends(get_db),
+    _: dict = Depends(require_admin),
+):
+    return await service.reactivate_subscriber(conn, subscriber_id)
+
+
 @router.get("/{subscriber_id}/vehicles", response_model=list[VehicleResponse])
 async def list_vehicles(
     subscriber_id: int,

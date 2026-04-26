@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { RevenueResponse, DailyRevenueItem, ParkingSummary, SubscriberRevenue } from '../types'
+import type { RevenueResponse, DailyRevenueItem, ParkingSummary, SubscriberRevenue, HourlyRevenueItem } from '../types'
 
 export async function getRevenue(startDate: string, endDate: string): Promise<RevenueResponse> {
   const { data } = await api.get<RevenueResponse>('/financial/revenue', {
@@ -28,6 +28,13 @@ export async function getParkingSummary(
 export async function getSubscriberRevenue(month: string): Promise<SubscriberRevenue> {
   const { data } = await api.get<SubscriberRevenue>('/financial/subscribers/revenue', {
     params: { month },
+  })
+  return data
+}
+
+export async function getHourlyRevenue(refDate: string): Promise<HourlyRevenueItem[]> {
+  const { data } = await api.get<HourlyRevenueItem[]>('/financial/revenue/hourly', {
+    params: { ref_date: refDate },
   })
   return data
 }

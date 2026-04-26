@@ -84,7 +84,16 @@ async def test_delete_subscriber_soft(auth_client: AsyncClient, active_subscribe
     assert resp.status_code == 204
 
     detail = await auth_client.get(f"/subscribers/{active_subscriber['id']}")
-    assert detail.json()["status"] == "suspended"
+    assert detail.json()["is_active"] is False
+    assert detail.json()["status"] == "active"
+
+
+@pytest.mark.asyncio
+async def test_reactivate_subscriber(auth_client: AsyncClient, active_subscriber: dict):
+    await auth_client.delete(f"/subscribers/{active_subscriber['id']}")
+    resp = await auth_client.patch(f"/subscribers/{active_subscriber['id']}/reactivate")
+    assert resp.status_code == 200
+    assert resp.json()["is_active"] is True
 
 
 @pytest.mark.asyncio

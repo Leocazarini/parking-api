@@ -200,6 +200,7 @@ class SubscriberResponse(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     status: str
+    is_active: bool
     due_day: int
     zip_code: Optional[str] = None
     street: Optional[str] = None

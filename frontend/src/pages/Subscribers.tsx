@@ -1,14 +1,15 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useForm, useFieldArray } from 'react-hook-form'
+import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import {
   Plus, Search, ChevronRight, X, Trash2,
-  DollarSign, AlertCircle, RefreshCw, Car, MapPin,
+  DollarSign, AlertCircle, RefreshCw, Car, MapPin, UserX, UserCheck,
 } from 'lucide-react'
 import {
   getSubscribers, getSubscriber, createSubscriber,
   addSubscriberVehicle, removeSubscriberVehicle,
   registerSubscriberPayment, runOverdueCheck,
+  deleteSubscriber, reactivateSubscriber,
 } from '../api/subscribers'
 import { getColors, getModels } from '../api/catalog'
 import { Modal } from '../components/Modal'
@@ -20,7 +21,7 @@ import type { Subscriber, SubscriberDetail, Color, VehicleModel } from '../types
 // Constants
 // ──────────────────────────────────────────────────────────────────────────────
 
-const PLATE_MERCOSUL = /^[A-Z]{3}[0-9][A-Z][0-9]{2}$/
+const PLATE_MERCOSUL = /^[A-Z]{3}[0-9][A-F][0-9]{2}$/
 const PLATE_OLD = /^[A-Z]{3}[0-9]{4}$/
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -30,6 +31,11 @@ const PLATE_OLD = /^[A-Z]{3}[0-9]{4}$/
 
 function fmtCPF(cpf: string) {
   return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+}
+
+function fmtCurrency(digits: string): string {
+  const num = parseInt(digits || '0', 10)
+  return (num / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 function fmtPhone(p: string | null) {
@@ -329,11 +335,19 @@ function SubscriberForm({
 // Detail panel
 // ──────────────────────────────────────────────────────────────────────────────
 
-function DetailPanel({ sub, onClose }: { sub: SubscriberDetail; onClose: () => void }) {
+function DetailPanel({
+  sub, onClose, onDeactivated,
+}: {
+  sub: SubscriberDetail
+  onClose: () => void
+  onDeactivated: () => void
+}) {
   const { toast } = useToast()
   const qc = useQueryClient()
   const [addVehicle, setAddVehicle] = useState(false)
   const [addPayment, setAddPayment] = useState(false)
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false)
+  const [amountDigits, setAmountDigits] = useState('')
 
   const { data: colors = [] } = useQuery<Color[]>({ queryKey: ['colors'], queryFn: getColors, staleTime: Infinity })
   const { data: models = [] } = useQuery<VehicleModel[]>({ queryKey: ['models'], queryFn: getModels, staleTime: Infinity })
@@ -344,11 +358,10 @@ function DetailPanel({ sub, onClose }: { sub: SubscriberDetail; onClose: () => v
   } = useForm<{ plate: string; model_id?: number; color_id?: number }>()
 
   const {
-    register: regP, handleSubmit: hsP,
+    register: regP, handleSubmit: hsP, control: controlP,
     formState: { errors: errorsP },
   } = useForm<{ amount: number; reference_month: string; payment_date: string; payment_method: string; notes?: string }>()
 
-  // Pre-declare plate field for add vehicle modal so onChange can call both transform + RHF
   const plateAddField = regV('plate', {
     required: 'Placa obrigatória',
     validate: (v) => {
@@ -378,12 +391,32 @@ function DetailPanel({ sub, onClose }: { sub: SubscriberDetail; onClose: () => v
 
   const paymentMut = useMutation({
     mutationFn: (d: { amount: number; reference_month: string; payment_date: string; payment_method: string; notes?: string }) =>
-      registerSubscriberPayment(sub.id, { ...d, amount: Number(d.amount) }),
+      registerSubscriberPayment(sub.id, { ...d, amount: Number(d.amount), reference_month: d.reference_month + '-01' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['subscriber', sub.id] })
       qc.invalidateQueries({ queryKey: ['subscribers'] })
       toast('Pagamento registrado', 'success')
       setAddPayment(false)
+      setAmountDigits('')
+    },
+  })
+
+  const deactivateMut = useMutation({
+    mutationFn: () => deleteSubscriber(sub.id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['subscribers'] })
+      toast('Mensalista desativado', 'info')
+      setConfirmDeactivate(false)
+      onDeactivated()
+    },
+  })
+
+  const reactivateMut = useMutation({
+    mutationFn: () => reactivateSubscriber(sub.id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['subscriber', sub.id] })
+      qc.invalidateQueries({ queryKey: ['subscribers'] })
+      toast('Mensalista reativado', 'success')
     },
   })
 
@@ -397,7 +430,10 @@ function DetailPanel({ sub, onClose }: { sub: SubscriberDetail; onClose: () => v
             <div style={{ fontFamily: 'Barlow Condensed', fontSize: 22, fontWeight: 900, letterSpacing: '0.03em' }}>{sub.name}</div>
             <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{fmtCPF(sub.cpf)}</div>
             <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <StatusBadge status={sub.status} />
+              {sub.is_active
+                ? <StatusBadge status={sub.status} />
+                : <StatusBadge status="inactive" />
+              }
               <span className="badge badge-regular" style={{ borderColor: 'var(--border)' }}>Vence dia {sub.due_day}</span>
             </div>
           </div>
@@ -461,7 +497,7 @@ function DetailPanel({ sub, onClose }: { sub: SubscriberDetail; onClose: () => v
         </div>
 
         {/* Payments */}
-        <div>
+        <div style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
             <div className="card-title">Pagamentos</div>
             <button className="btn btn-secondary btn-sm" onClick={() => setAddPayment(true)}>
@@ -484,6 +520,51 @@ function DetailPanel({ sub, onClose }: { sub: SubscriberDetail; onClose: () => v
               </div>
             ))
           }
+        </div>
+
+        {/* Deactivate / Reactivate */}
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+          {sub.is_active ? (
+            confirmDeactivate ? (
+              <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: 12 }}>
+                <div style={{ fontSize: 13, marginBottom: 10, color: 'var(--text)' }}>
+                  Desativar <strong>{sub.name}</strong>? O cadastro será mantido mas o cliente não terá acesso de mensalista.
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    className="btn btn-sm"
+                    style={{ background: 'var(--red)', color: '#fff', flex: 1 }}
+                    onClick={() => deactivateMut.mutate()}
+                    disabled={deactivateMut.isPending}
+                  >
+                    {deactivateMut.isPending ? 'Desativando…' : 'Confirmar'}
+                  </button>
+                  <button className="btn btn-secondary btn-sm" style={{ flex: 1 }} onClick={() => setConfirmDeactivate(false)}>
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                className="btn btn-secondary w-full"
+                style={{ color: 'var(--red)', borderColor: 'rgba(239,68,68,0.3)' }}
+                onClick={() => setConfirmDeactivate(true)}
+              >
+                <UserX size={15} /> Desativar mensalista
+              </button>
+            )
+          ) : (
+            <button
+              className="btn btn-primary w-full"
+              onClick={() => reactivateMut.mutate()}
+              disabled={reactivateMut.isPending}
+            >
+              {reactivateMut.isPending
+                ? <><div className="spinner" style={{ width: 15, height: 15 }} /> Reativando…</>
+                : <><UserCheck size={15} /> Reativar mensalista</>
+              }
+            </button>
+          )}
         </div>
       </div>
 
@@ -535,21 +616,50 @@ function DetailPanel({ sub, onClose }: { sub: SubscriberDetail; onClose: () => v
       </Modal>
 
       {/* Add payment modal — key forces remount on each open */}
-      <Modal open={addPayment} onClose={() => setAddPayment(false)} title="Registrar Pagamento">
+      <Modal open={addPayment} onClose={() => { setAddPayment(false); setAmountDigits('') }} title="Registrar Pagamento">
         <form key={String(addPayment)} onSubmit={hsP((d) => paymentMut.mutate(d))}>
           <div className="grid-2">
-            <div className="form-group">
-              <label className="form-label">Valor (R$) *</label>
-              <input type="number" step="0.01" min="0.01" max="99999.99"
-                className={`form-input ${errorsP.amount ? 'error' : ''}`}
-                {...regP('amount', {
-                  required: 'Valor obrigatório',
-                  min: { value: 0.01, message: 'Valor deve ser maior que zero' },
-                  max: { value: 99999.99, message: 'Máximo R$ 99.999,99' },
-                  valueAsNumber: true,
-                })} />
-              {errorsP.amount && <span className="form-error"><AlertCircle size={12} />{errorsP.amount.message}</span>}
-            </div>
+            <Controller
+              control={controlP}
+              name="amount"
+              rules={{
+                required: 'Valor obrigatório',
+                validate: (v) => Number(v) > 0 || 'Valor deve ser maior que zero',
+              }}
+              render={({ field, fieldState }) => (
+                <div className="form-group">
+                  <label className="form-label">Valor (R$) *</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    className={`form-input mono ${fieldState.error ? 'error' : ''}`}
+                    style={{ fontSize: 18, textAlign: 'right', letterSpacing: '0.04em' }}
+                    value={`R$ ${fmtCurrency(amountDigits)}`}
+                    readOnly
+                    name={field.name}
+                    ref={field.ref}
+                    onBlur={field.onBlur}
+                    onKeyDown={(e) => {
+                      if (e.key >= '0' && e.key <= '9') {
+                        e.preventDefault()
+                        const next = (amountDigits + e.key).replace(/^0+/, '') || '0'
+                        if (next.length <= 9) {
+                          setAmountDigits(next)
+                          field.onChange(parseInt(next, 10) / 100)
+                        }
+                      } else if (e.key === 'Backspace') {
+                        e.preventDefault()
+                        const next = amountDigits.slice(0, -1)
+                        setAmountDigits(next)
+                        field.onChange(next ? parseInt(next, 10) / 100 : 0)
+                      }
+                    }}
+                    onClick={(e) => (e.target as HTMLInputElement).focus()}
+                  />
+                  {fieldState.error && <span className="form-error"><AlertCircle size={12} />{fieldState.error.message}</span>}
+                </div>
+              )}
+            />
             <div className="form-group">
               <label className="form-label">Mês referência *</label>
               <input type="month" className={`form-input ${errorsP.reference_month ? 'error' : ''}`}
@@ -598,11 +708,13 @@ function DetailPanel({ sub, onClose }: { sub: SubscriberDetail; onClose: () => v
 // Main page
 // ──────────────────────────────────────────────────────────────────────────────
 
+type TabKey = 'ativos' | 'desativados' | 'inadimplentes'
+
 export default function Subscribers() {
   const { toast } = useToast()
   const qc = useQueryClient()
   const [search, setSearch] = useState('')
-  const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [activeTab, setActiveTab] = useState<TabKey>('ativos')
   const [createOpen, setCreateOpen] = useState(false)
   const [detailId, setDetailId] = useState<number | null>(null)
 
@@ -656,18 +768,30 @@ export default function Subscribers() {
     onSuccess: (r) => toast(`Verificação concluída: ${r.marked_overdue} marcados como inadimplentes`, 'info'),
   })
 
+  const counts = {
+    ativos: subscribers.filter((s) => s.is_active && s.status === 'active').length,
+    desativados: subscribers.filter((s) => !s.is_active).length,
+    inadimplentes: subscribers.filter((s) => s.is_active && s.status === 'overdue').length,
+  }
+
+  const tabFilter = (s: Subscriber): boolean => {
+    if (activeTab === 'ativos') return s.is_active && s.status === 'active'
+    if (activeTab === 'desativados') return !s.is_active
+    return s.is_active && s.status === 'overdue'
+  }
+
   const filtered = subscribers
-    .filter((s) => filterStatus === 'all' || s.status === filterStatus)
+    .filter(tabFilter)
     .filter((s) => {
       const q = search.toLowerCase()
       return s.name.toLowerCase().includes(q) || s.cpf.includes(q)
     })
 
-  const counts = {
-    all: subscribers.length,
-    active: subscribers.filter((s) => s.status === 'active').length,
-    overdue: subscribers.filter((s) => s.status === 'overdue').length,
-  }
+  const TABS: { key: TabKey; label: string }[] = [
+    { key: 'ativos', label: `Ativos (${counts.ativos})` },
+    { key: 'desativados', label: `Desativados (${counts.desativados})` },
+    { key: 'inadimplentes', label: `Inadimplentes (${counts.inadimplentes})` },
+  ]
 
   return (
     <div className="page">
@@ -687,11 +811,11 @@ export default function Subscribers() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="seg-control mb-16" style={{ maxWidth: 340 }}>
-        {(['all', 'active', 'overdue'] as const).map((s) => (
-          <button key={s} className={`seg-btn ${filterStatus === s ? 'active' : ''}`} onClick={() => setFilterStatus(s)}>
-            {s === 'all' ? `Todos (${counts.all})` : s === 'active' ? `Ativos (${counts.active})` : `Inadimp. (${counts.overdue})`}
+      {/* Tabs */}
+      <div className="seg-control mb-16">
+        {TABS.map((t) => (
+          <button key={t.key} className={`seg-btn ${activeTab === t.key ? 'active' : ''}`} onClick={() => setActiveTab(t.key)}>
+            {t.label}
           </button>
         ))}
       </div>
@@ -729,7 +853,12 @@ export default function Subscribers() {
                   <td className="mono" style={{ fontSize: 13 }}>{fmtCPF(s.cpf)}</td>
                   <td>{fmtPhone(s.phone)}</td>
                   <td className="text-center">{s.due_day}</td>
-                  <td><StatusBadge status={s.status} /></td>
+                  <td>
+                    {s.is_active
+                      ? <StatusBadge status={s.status} />
+                      : <StatusBadge status="inactive" />
+                    }
+                  </td>
                   <td><ChevronRight size={16} color="var(--text-dim)" /></td>
                 </tr>
               ))}
@@ -749,7 +878,11 @@ export default function Subscribers() {
 
       {/* Detail panel */}
       {detail && detailId !== null && (
-        <DetailPanel sub={detail} onClose={() => setDetailId(null)} />
+        <DetailPanel
+          sub={detail}
+          onClose={() => setDetailId(null)}
+          onDeactivated={() => setDetailId(null)}
+        />
       )}
 
       <style>{`.spinning { animation: spin 1s linear infinite; }`}</style>
