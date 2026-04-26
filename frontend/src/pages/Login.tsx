@@ -67,7 +67,7 @@ export default function Login() {
               placeholder="seu.usuario"
               autoComplete="username"
               autoCapitalize="none"
-              {...register('username', { required: 'Usuário obrigatório' })}
+              {...register('username', { required: 'Usuário obrigatório', maxLength: { value: 50, message: 'Máximo 50 caracteres' } })}
             />
             {errors.username && (
               <span className="form-error"><AlertCircle size={12} />{errors.username.message}</span>
@@ -83,7 +83,7 @@ export default function Login() {
                 placeholder="••••••••"
                 autoComplete="current-password"
                 style={{ paddingRight: 44 }}
-                {...register('password', { required: 'Senha obrigatória' })}
+                {...register('password', { required: 'Senha obrigatória', maxLength: { value: 128, message: 'Senha muito longa' } })}
               />
               <button
                 type="button"

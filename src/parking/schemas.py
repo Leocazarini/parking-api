@@ -78,3 +78,25 @@ class ConfigUpdate(BaseModel):
     hourly_rate: Optional[Decimal] = None
     daily_rate: Optional[Decimal] = None
     tolerance_minutes: Optional[int] = None
+
+    @field_validator("hourly_rate", "daily_rate", mode="before")
+    @classmethod
+    def validate_rate(cls, v: object) -> object:
+        if v is None:
+            return v
+        try:
+            val = Decimal(str(v))
+        except Exception:
+            raise ValueError("Valor monetário inválido")
+        if val < 0:
+            raise ValueError("Valor não pode ser negativo")
+        if val > Decimal("9999.99"):
+            raise ValueError("Valor máximo é R$ 9.999,99")
+        return val
+
+    @field_validator("tolerance_minutes")
+    @classmethod
+    def validate_tolerance(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and not (0 <= v <= 60):
+            raise ValueError("Tolerância deve estar entre 0 e 60 minutos")
+        return v

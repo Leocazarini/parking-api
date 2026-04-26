@@ -152,19 +152,33 @@ export default function Users() {
             <label className="form-label">Nome de usuário *</label>
             <input className={`form-input ${errors.username ? 'error' : ''}`}
               autoCapitalize="none"
-              {...register('username', { required: 'Obrigatório' })} />
+              placeholder="min. 3 caracteres"
+              {...register('username', {
+                required: 'Obrigatório',
+                minLength: { value: 3, message: 'Mínimo 3 caracteres' },
+                maxLength: { value: 50, message: 'Máximo 50 caracteres' },
+                pattern: { value: /^[a-zA-Z0-9_]+$/, message: 'Use apenas letras, números e _' },
+              })} />
             {errors.username && <span className="form-error"><AlertCircle size={12} />{errors.username.message}</span>}
           </div>
           <div className="form-group">
             <label className="form-label">E-mail *</label>
             <input type="email" className={`form-input ${errors.email ? 'error' : ''}`}
-              {...register('email', { required: 'Obrigatório' })} />
+              {...register('email', {
+                required: 'Obrigatório',
+                pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'E-mail inválido' },
+                maxLength: { value: 255, message: 'Máximo 255 caracteres' },
+              })} />
             {errors.email && <span className="form-error"><AlertCircle size={12} />{errors.email.message}</span>}
           </div>
           <div className="form-group">
             <label className="form-label">Senha *</label>
             <input type="password" className={`form-input ${errors.password ? 'error' : ''}`}
-              {...register('password', { required: 'Obrigatório', minLength: { value: 8, message: 'Mínimo 8 caracteres' } })} />
+              {...register('password', {
+                required: 'Obrigatório',
+                minLength: { value: 8, message: 'Mínimo 8 caracteres' },
+                maxLength: { value: 128, message: 'Senha muito longa' },
+              })} />
             {errors.password && <span className="form-error"><AlertCircle size={12} />{errors.password.message}</span>}
           </div>
           <div className="form-group" style={{ marginBottom: 20 }}>

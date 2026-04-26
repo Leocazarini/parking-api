@@ -81,10 +81,12 @@ export default function Settings() {
                   type="number"
                   step="0.01"
                   min="0"
+                  max="9999.99"
                   className={`form-input ${errors.hourly_rate ? 'error' : ''}`}
                   {...register('hourly_rate', {
                     required: 'Obrigatório',
                     min: { value: 0, message: 'Valor inválido' },
+                    max: { value: 9999.99, message: 'Máximo R$ 9.999,99' },
                     valueAsNumber: true,
                   })}
                 />
@@ -100,10 +102,12 @@ export default function Settings() {
                   type="number"
                   step="0.01"
                   min="0"
+                  max="9999.99"
                   className={`form-input ${errors.daily_rate ? 'error' : ''}`}
                   {...register('daily_rate', {
                     required: 'Obrigatório',
                     min: { value: 0, message: 'Valor inválido' },
+                    max: { value: 9999.99, message: 'Máximo R$ 9.999,99' },
                     valueAsNumber: true,
                   })}
                 />

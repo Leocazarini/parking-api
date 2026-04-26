@@ -17,6 +17,13 @@ import { useToast } from '../hooks/useToast'
 import type { Subscriber, SubscriberDetail, Color, VehicleModel } from '../types'
 
 // ──────────────────────────────────────────────────────────────────────────────
+// Constants
+// ──────────────────────────────────────────────────────────────────────────────
+
+const PLATE_MERCOSUL = /^[A-Z]{3}[0-9][A-Z][0-9]{2}$/
+const PLATE_OLD = /^[A-Z]{3}[0-9]{4}$/
+
+// ──────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -73,39 +80,76 @@ function SubscriberForm({
   })
   const { fields, append, remove } = useFieldArray({ control, name: 'vehicles' })
 
+  // Pre-declare state field so we can provide a custom onChange while still calling RHF's handler
+  const stateField = register('state', {
+    maxLength: { value: 2, message: 'Máximo 2 caracteres' },
+    validate: (v) => !v || /^[A-Z]{2}$/i.test(v) || '2 letras maiúsculas. Ex: SP',
+  })
+
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       {/* ── Dados pessoais ── */}
       <div className="form-group">
         <label className="form-label">Nome completo *</label>
         <input className={`form-input ${errors.name ? 'error' : ''}`}
-          {...register('name', { required: 'Nome obrigatório' })} />
+          maxLength={255}
+          {...register('name', {
+            required: 'Nome obrigatório',
+            maxLength: { value: 255, message: 'Máximo 255 caracteres' },
+          })} />
         {errors.name && <span className="form-error"><AlertCircle size={12} />{errors.name.message}</span>}
       </div>
 
       <div className="grid-2">
         <div className="form-group">
           <label className="form-label">CPF *</label>
-          <input className={`form-input ${errors.cpf ? 'error' : ''}`} placeholder="00000000000"
-            {...register('cpf', { required: 'CPF obrigatório' })} />
+          <input className={`form-input ${errors.cpf ? 'error' : ''}`} placeholder="000.000.000-00"
+            maxLength={14}
+            {...register('cpf', {
+              required: 'CPF obrigatório',
+              validate: (v) => {
+                const digits = v.replace(/\D/g, '')
+                return digits.length === 11 || 'CPF deve ter 11 dígitos'
+              },
+            })} />
           {errors.cpf && <span className="form-error"><AlertCircle size={12} />{errors.cpf.message}</span>}
         </div>
         <div className="form-group">
           <label className="form-label">Dia do vencimento *</label>
           <input type="number" min={1} max={28} className={`form-input ${errors.due_day ? 'error' : ''}`}
-            {...register('due_day', { required: true, min: 1, max: 28, valueAsNumber: true })} />
+            {...register('due_day', {
+              required: 'Obrigatório',
+              min: { value: 1, message: 'Entre 1 e 28' },
+              max: { value: 28, message: 'Entre 1 e 28' },
+              valueAsNumber: true,
+            })} />
+          {errors.due_day && <span className="form-error"><AlertCircle size={12} />{errors.due_day.message}</span>}
         </div>
       </div>
 
       <div className="form-group">
         <label className="form-label">Telefone</label>
-        <input className="form-input" placeholder="(11) 99999-9999"
-          {...register('phone')} />
+        <input className={`form-input ${errors.phone ? 'error' : ''}`} placeholder="(11) 99999-9999"
+          maxLength={15}
+          {...register('phone', {
+            validate: (v) => {
+              if (!v) return true
+              const digits = v.replace(/\D/g, '')
+              return (digits.length === 10 || digits.length === 11) || 'Telefone deve ter 10 ou 11 dígitos'
+            },
+          })} />
+        {errors.phone && <span className="form-error"><AlertCircle size={12} />{errors.phone.message}</span>}
       </div>
 
       <div className="form-group">
         <label className="form-label">E-mail</label>
-        <input type="email" className="form-input" {...register('email')} />
+        <input type="email" className={`form-input ${errors.email ? 'error' : ''}`}
+          maxLength={255}
+          {...register('email', {
+            pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'E-mail inválido' },
+            maxLength: { value: 255, message: 'Máximo 255 caracteres' },
+          })} />
+        {errors.email && <span className="form-error"><AlertCircle size={12} />{errors.email.message}</span>}
       </div>
 
       {/* ── Endereço ── */}
@@ -118,40 +162,64 @@ function SubscriberForm({
         <div className="grid-2">
           <div className="form-group">
             <label className="form-label">CEP</label>
-            <input className="form-input" placeholder="00000-000" {...register('zip_code')} />
+            <input className={`form-input ${errors.zip_code ? 'error' : ''}`} placeholder="00000-000"
+              maxLength={9}
+              {...register('zip_code', {
+                validate: (v) => {
+                  if (!v) return true
+                  const digits = v.replace(/\D/g, '')
+                  return digits.length === 8 || 'CEP deve ter 8 dígitos'
+                },
+              })} />
+            {errors.zip_code && <span className="form-error"><AlertCircle size={12} />{errors.zip_code.message}</span>}
           </div>
           <div className="form-group">
             <label className="form-label">Estado (UF)</label>
-            <input className="form-input" placeholder="SP" maxLength={2}
-              {...register('state')}
-              onChange={(e) => { e.target.value = e.target.value.toUpperCase() }} />
+            <input
+              ref={stateField.ref}
+              name={stateField.name}
+              onBlur={stateField.onBlur}
+              placeholder="SP"
+              maxLength={2}
+              className={`form-input ${errors.state ? 'error' : ''}`}
+              onChange={(e) => {
+                e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, '')
+                stateField.onChange(e)
+              }}
+            />
+            {errors.state && <span className="form-error"><AlertCircle size={12} />{errors.state.message}</span>}
           </div>
         </div>
 
         <div className="form-group">
           <label className="form-label">Rua / Logradouro</label>
-          <input className="form-input" placeholder="Rua das Flores" {...register('street')} />
+          <input className="form-input" placeholder="Rua das Flores" maxLength={255}
+            {...register('street', { maxLength: { value: 255, message: 'Máximo 255 caracteres' } })} />
         </div>
 
         <div className="grid-2">
           <div className="form-group">
             <label className="form-label">Número</label>
-            <input className="form-input" placeholder="123" {...register('number')} />
+            <input className="form-input" placeholder="123" maxLength={10}
+              {...register('number', { maxLength: { value: 10, message: 'Máximo 10 caracteres' } })} />
           </div>
           <div className="form-group">
             <label className="form-label">Complemento</label>
-            <input className="form-input" placeholder="Apto 4" {...register('complement')} />
+            <input className="form-input" placeholder="Apto 4" maxLength={100}
+              {...register('complement', { maxLength: { value: 100, message: 'Máximo 100 caracteres' } })} />
           </div>
         </div>
 
         <div className="grid-2">
           <div className="form-group">
             <label className="form-label">Bairro</label>
-            <input className="form-input" {...register('neighborhood')} />
+            <input className="form-input" maxLength={255}
+              {...register('neighborhood', { maxLength: { value: 255, message: 'Máximo 255 caracteres' } })} />
           </div>
           <div className="form-group">
             <label className="form-label">Cidade</label>
-            <input className="form-input" {...register('city')} />
+            <input className="form-input" maxLength={255}
+              {...register('city', { maxLength: { value: 255, message: 'Máximo 255 caracteres' } })} />
           </div>
         </div>
       </div>
@@ -172,64 +240,79 @@ function SubscriberForm({
           </button>
         </div>
 
-        {fields.map((field, idx) => (
-          <div key={field.id} style={{
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            padding: 12,
-            marginBottom: 10,
-            background: 'var(--surface-raised)',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
-                Veículo {idx + 1}
-              </span>
-              {fields.length > 1 && (
-                <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={() => remove(idx)}>
-                  <Trash2 size={13} />
-                </button>
-              )}
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Placa *</label>
-              <input
-                className={`plate-input w-full ${errors.vehicles?.[idx]?.plate ? 'error' : ''}`}
-                style={{ fontSize: 18 }}
-                placeholder="ABC1D23"
-                autoCapitalize="characters"
-                {...register(`vehicles.${idx}.plate`, { required: 'Placa obrigatória' })}
-                onChange={(e) => { e.target.value = e.target.value.toUpperCase() }}
-              />
-              {errors.vehicles?.[idx]?.plate && (
-                <span className="form-error">
-                  <AlertCircle size={12} />{errors.vehicles[idx].plate?.message}
+        {fields.map((field, idx) => {
+          const plateField = register(`vehicles.${idx}.plate` as const, {
+            required: 'Placa obrigatória',
+            validate: (v) => {
+              const p = v.toUpperCase().trim()
+              return PLATE_MERCOSUL.test(p) || PLATE_OLD.test(p) || 'Placa inválida. Use AAA0000 ou AAA0A00'
+            },
+          })
+          return (
+            <div key={field.id} style={{
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              padding: 12,
+              marginBottom: 10,
+              background: 'var(--surface-raised)',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
+                  Veículo {idx + 1}
                 </span>
-              )}
-            </div>
+                {fields.length > 1 && (
+                  <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={() => remove(idx)}>
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </div>
 
-            <div className="grid-2">
               <div className="form-group">
-                <label className="form-label">Modelo</label>
-                <div className="select-wrapper">
-                  <select className="form-select" {...register(`vehicles.${idx}.model_id`)}>
-                    <option value="">—</option>
-                    {models.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-                  </select>
-                </div>
+                <label className="form-label">Placa *</label>
+                <input
+                  ref={plateField.ref}
+                  name={plateField.name}
+                  onBlur={plateField.onBlur}
+                  className={`plate-input w-full ${errors.vehicles?.[idx]?.plate ? 'error' : ''}`}
+                  style={{ fontSize: 18 }}
+                  placeholder="ABC1D23"
+                  autoCapitalize="characters"
+                  maxLength={8}
+                  onChange={(e) => {
+                    e.target.value = e.target.value.toUpperCase()
+                    plateField.onChange(e)
+                  }}
+                />
+                {errors.vehicles?.[idx]?.plate && (
+                  <span className="form-error">
+                    <AlertCircle size={12} />{errors.vehicles[idx].plate?.message}
+                  </span>
+                )}
               </div>
-              <div className="form-group">
-                <label className="form-label">Cor</label>
-                <div className="select-wrapper">
-                  <select className="form-select" {...register(`vehicles.${idx}.color_id`)}>
-                    <option value="">—</option>
-                    {colors.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
+
+              <div className="grid-2">
+                <div className="form-group">
+                  <label className="form-label">Modelo</label>
+                  <div className="select-wrapper">
+                    <select className="form-select" {...register(`vehicles.${idx}.model_id`)}>
+                      <option value="">—</option>
+                      {models.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Cor</label>
+                  <div className="select-wrapper">
+                    <select className="form-select" {...register(`vehicles.${idx}.color_id`)}>
+                      <option value="">—</option>
+                      {colors.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       <button type="submit" className="btn btn-primary w-full" disabled={isLoading}
@@ -255,8 +338,24 @@ function DetailPanel({ sub, onClose }: { sub: SubscriberDetail; onClose: () => v
   const { data: colors = [] } = useQuery<Color[]>({ queryKey: ['colors'], queryFn: getColors, staleTime: Infinity })
   const { data: models = [] } = useQuery<VehicleModel[]>({ queryKey: ['models'], queryFn: getModels, staleTime: Infinity })
 
-  const { register: regV, handleSubmit: hsV } = useForm<{ plate: string; model_id?: number; color_id?: number }>()
-  const { register: regP, handleSubmit: hsP } = useForm<{ amount: number; reference_month: string; payment_date: string; payment_method: string; notes?: string }>()
+  const {
+    register: regV, handleSubmit: hsV,
+    formState: { errors: errorsV },
+  } = useForm<{ plate: string; model_id?: number; color_id?: number }>()
+
+  const {
+    register: regP, handleSubmit: hsP,
+    formState: { errors: errorsP },
+  } = useForm<{ amount: number; reference_month: string; payment_date: string; payment_method: string; notes?: string }>()
+
+  // Pre-declare plate field for add vehicle modal so onChange can call both transform + RHF
+  const plateAddField = regV('plate', {
+    required: 'Placa obrigatória',
+    validate: (v) => {
+      const p = v.toUpperCase().trim()
+      return PLATE_MERCOSUL.test(p) || PLATE_OLD.test(p) || 'Placa inválida. Use AAA0000 ou AAA0A00'
+    },
+  })
 
   const addVehicleMut = useMutation({
     mutationFn: (d: { plate: string; model_id?: number; color_id?: number }) =>
@@ -393,9 +492,21 @@ function DetailPanel({ sub, onClose }: { sub: SubscriberDetail; onClose: () => v
         <form key={String(addVehicle)} onSubmit={hsV((d) => addVehicleMut.mutate(d))}>
           <div className="form-group">
             <label className="form-label">Placa *</label>
-            <input className="plate-input w-full" style={{ fontSize: 18 }} placeholder="ABC1D23"
-              {...regV('plate', { required: true })} autoCapitalize="characters"
-              onChange={(e) => { e.target.value = e.target.value.toUpperCase() }} />
+            <input
+              ref={plateAddField.ref}
+              name={plateAddField.name}
+              onBlur={plateAddField.onBlur}
+              className={`plate-input w-full ${errorsV.plate ? 'error' : ''}`}
+              style={{ fontSize: 18 }}
+              placeholder="ABC1D23"
+              maxLength={8}
+              autoCapitalize="characters"
+              onChange={(e) => {
+                e.target.value = e.target.value.toUpperCase()
+                plateAddField.onChange(e)
+              }}
+            />
+            {errorsV.plate && <span className="form-error"><AlertCircle size={12} />{errorsV.plate.message}</span>}
           </div>
           <div className="grid-2">
             <div className="form-group">
@@ -429,21 +540,30 @@ function DetailPanel({ sub, onClose }: { sub: SubscriberDetail; onClose: () => v
           <div className="grid-2">
             <div className="form-group">
               <label className="form-label">Valor (R$) *</label>
-              <input type="number" step="0.01" min="0" className="form-input"
-                {...regP('amount', { required: true, valueAsNumber: true })} />
+              <input type="number" step="0.01" min="0.01" max="99999.99"
+                className={`form-input ${errorsP.amount ? 'error' : ''}`}
+                {...regP('amount', {
+                  required: 'Valor obrigatório',
+                  min: { value: 0.01, message: 'Valor deve ser maior que zero' },
+                  max: { value: 99999.99, message: 'Máximo R$ 99.999,99' },
+                  valueAsNumber: true,
+                })} />
+              {errorsP.amount && <span className="form-error"><AlertCircle size={12} />{errorsP.amount.message}</span>}
             </div>
             <div className="form-group">
               <label className="form-label">Mês referência *</label>
-              <input type="month" className="form-input"
-                {...regP('reference_month', { required: true })} />
+              <input type="month" className={`form-input ${errorsP.reference_month ? 'error' : ''}`}
+                {...regP('reference_month', { required: 'Obrigatório' })} />
+              {errorsP.reference_month && <span className="form-error"><AlertCircle size={12} />{errorsP.reference_month.message}</span>}
             </div>
           </div>
           <div className="grid-2">
             <div className="form-group">
               <label className="form-label">Data pagamento *</label>
-              <input type="date" className="form-input"
+              <input type="date" className={`form-input ${errorsP.payment_date ? 'error' : ''}`}
                 defaultValue={new Date().toISOString().split('T')[0]}
-                {...regP('payment_date', { required: true })} />
+                {...regP('payment_date', { required: 'Obrigatório' })} />
+              {errorsP.payment_date && <span className="form-error"><AlertCircle size={12} />{errorsP.payment_date.message}</span>}
             </div>
             <div className="form-group">
               <label className="form-label">Forma de Pag.</label>
@@ -460,7 +580,10 @@ function DetailPanel({ sub, onClose }: { sub: SubscriberDetail; onClose: () => v
           </div>
           <div className="form-group">
             <label className="form-label">Observações</label>
-            <input className="form-input" {...regP('notes')} />
+            <input className={`form-input ${errorsP.notes ? 'error' : ''}`}
+              maxLength={500}
+              {...regP('notes', { maxLength: { value: 500, message: 'Máximo 500 caracteres' } })} />
+            {errorsP.notes && <span className="form-error"><AlertCircle size={12} />{errorsP.notes.message}</span>}
           </div>
           <button type="submit" className="btn btn-primary w-full" disabled={paymentMut.isPending}>
             {paymentMut.isPending ? 'Salvando…' : 'Registrar Pagamento'}
