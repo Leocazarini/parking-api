@@ -38,6 +38,7 @@ class ParkingSummaryResponse(BaseModel):
     subscriber_entries: int
     free_exits: int
     average_stay_minutes: float
+    regular_average_stay_minutes: float
     peak_hour: Optional[int]
 
 
@@ -51,3 +52,20 @@ class HourlyRevenueItem(BaseModel):
     hour: int
     today: Decimal
     yesterday: Decimal
+
+
+class OverdueSubscriberItem(BaseModel):
+    id: int
+    name: str
+    cpf: str
+    phone: Optional[str]
+    email: Optional[str]
+    due_day: int
+
+
+class MonthPaymentItem(BaseModel):
+    subscriber_id: int
+    subscriber_name: str
+    amount: Decimal
+    payment_method: str
+    payment_date: date

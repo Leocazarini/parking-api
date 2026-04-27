@@ -10,6 +10,7 @@ const Login = lazy(() => import('./pages/Login'))
 const Yard = lazy(() => import('./pages/Yard'))
 const Entry = lazy(() => import('./pages/Entry'))
 const Exit = lazy(() => import('./pages/Exit'))
+const SubscriberPayment = lazy(() => import('./pages/SubscriberPayment'))
 const Subscribers = lazy(() => import('./pages/Subscribers'))
 const Financial = lazy(() => import('./pages/Financial'))
 const Users = lazy(() => import('./pages/Users'))
@@ -79,9 +80,10 @@ function AppRoutes() {
 
       <Route element={<AuthGuard />}>
         <Route index element={<Navigate to="/yard" replace />} />
-        <Route path="/yard"  element={<Yard />} />
-        <Route path="/entry" element={<Entry />} />
-        <Route path="/exit"  element={<Exit />} />
+        <Route path="/yard"              element={<Yard />} />
+        <Route path="/subscriber-payment" element={<SubscriberPayment />} />
+        <Route path="/entry"             element={<Entry />} />
+        <Route path="/exit"              element={<Exit />} />
 
         <Route element={<AdminGuard />}>
           <Route path="/subscribers" element={<Subscribers />} />

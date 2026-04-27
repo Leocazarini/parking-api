@@ -143,3 +143,16 @@ async def list_payments(
     _: dict = Depends(require_admin),
 ):
     return await service.list_payments(conn, subscriber_id)
+
+
+@router.delete(
+    "/{subscriber_id}/payments/{payment_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def remove_payment(
+    subscriber_id: int,
+    payment_id: int,
+    conn: AsyncConnection = Depends(get_db),
+    _: dict = Depends(require_admin),
+):
+    await service.remove_payment(conn, subscriber_id, payment_id)

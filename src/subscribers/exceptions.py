@@ -31,3 +31,11 @@ class DuplicatePlateError(HTTPException):
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Placa {plate} já cadastrada como veículo de mensalista",
         )
+
+
+class PaymentNotFoundError(HTTPException):
+    def __init__(self, payment_id: int):
+        super().__init__(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Pagamento {payment_id} não encontrado",
+        )

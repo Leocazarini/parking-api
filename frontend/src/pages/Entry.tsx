@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AlertCircle, CheckCircle, AlertTriangle, Car, ChevronRight, Search, Check } from 'lucide-react'
@@ -41,9 +41,46 @@ function SearchableList({
   hasError?: boolean
 }) {
   const [search, setSearch] = useState('')
+  const [collapsed, setCollapsed] = useState(false)
+
+  const selectedItem = selected ? items.find((i) => i.id === selected) ?? null : null
+
+  useEffect(() => {
+    if (!selected) setCollapsed(false)
+  }, [selected])
+
   const filtered = search.trim()
     ? items.filter((i) => i.name.toLowerCase().includes(search.toLowerCase()))
     : []
+
+  const handleSelect = (id: number) => {
+    onSelect(id)
+    setCollapsed(true)
+    setSearch('')
+  }
+
+  const handleExpand = () => {
+    setCollapsed(false)
+    setSearch('')
+  }
+
+  if (collapsed && selectedItem) {
+    return (
+      <div
+        className={`searchable-list-box ${hasError ? 'error' : ''}`}
+        style={{ cursor: 'pointer' }}
+        onClick={handleExpand}
+      >
+        <div className="searchable-list-item selected" style={{ margin: 0, borderRadius: 6 }}>
+          {selectedItem.hex !== undefined && (
+            <span className="sli-dot" style={{ background: selectedItem.hex || '#6B7280' }} />
+          )}
+          <span className="sli-name">{selectedItem.name}</span>
+          <Check size={14} className="sli-check" style={{ opacity: 1 }} />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={`searchable-list-box ${hasError ? 'error' : ''}`}>
@@ -55,6 +92,7 @@ function SearchableList({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           autoComplete="off"
+          autoFocus={collapsed === false && selectedItem !== null}
         />
       </div>
       <div className="searchable-list">
@@ -67,7 +105,7 @@ function SearchableList({
             <div
               key={item.id}
               className={`searchable-list-item ${selected === item.id ? 'selected' : ''}`}
-              onClick={() => onSelect(item.id)}
+              onClick={() => handleSelect(item.id)}
             >
               {item.hex !== undefined && (
                 <span

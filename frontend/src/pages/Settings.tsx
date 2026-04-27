@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { fmtDuration } from '../utils'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { Save, Clock, DollarSign, AlertCircle } from 'lucide-react'
@@ -163,7 +164,7 @@ export default function Settings() {
                   return (
                     <div key={mins} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
                       <span style={{ color: 'var(--text-muted)' }}>
-                        {mins < 60 ? `${mins}min` : `${Math.floor(mins / 60)}h${mins % 60 ? ` ${mins % 60}min` : ''}`}
+                        {fmtDuration(mins)}
                       </span>
                       <span className="mono" style={{ fontWeight: 700, color: isInTolerance ? 'var(--green)' : charge === Number(config.daily_rate) ? 'var(--orange)' : 'var(--amber)' }}>
                         {isInTolerance ? 'GRÁTIS' : charge.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}

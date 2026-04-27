@@ -3,12 +3,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import {
   Plus, Search, ChevronRight, X, Trash2,
-  DollarSign, AlertCircle, RefreshCw, Car, MapPin, UserX, UserCheck,
+  DollarSign, AlertCircle, RefreshCw, Car, MapPin, UserX, UserCheck, Pencil,
 } from 'lucide-react'
 import {
-  getSubscribers, getSubscriber, createSubscriber,
+  getSubscribers, getSubscriber, createSubscriber, updateSubscriber,
   addSubscriberVehicle, removeSubscriberVehicle,
-  registerSubscriberPayment, runOverdueCheck,
+  registerSubscriberPayment, removeSubscriberPayment, runOverdueCheck,
   deleteSubscriber, reactivateSubscriber,
 } from '../api/subscribers'
 import { getColors, getModels } from '../api/catalog'
@@ -44,6 +44,35 @@ function fmtPhone(p: string | null) {
   if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
   if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`
   return p
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Due date badge
+// ──────────────────────────────────────────────────────────────────────────────
+
+function lastDayOf(year: number, month: number): number {
+  return new Date(year, month + 1, 0).getDate()
+}
+
+function daysUntilDue(dueDay: number): number {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const y = today.getFullYear()
+  const m = today.getMonth()
+  const effectiveDay = Math.min(dueDay, lastDayOf(y, m))
+  let due = new Date(y, m, effectiveDay)
+  if (due < today) {
+    const nm = m + 1 > 11 ? 0 : m + 1
+    const ny = m + 1 > 11 ? y + 1 : y
+    due = new Date(ny, nm, Math.min(dueDay, lastDayOf(ny, nm)))
+  }
+  return Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+function DueBadge({ dueDay }: { dueDay: number }) {
+  const days = daysUntilDue(dueDay)
+  const cls = days >= 15 ? 'badge-due-safe' : days >= 6 ? 'badge-due-warn' : 'badge-due-urgent'
+  return <span className={`badge ${cls}`} title={`${days} dias para o vencimento`}>dia {dueDay}</span>
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -122,11 +151,11 @@ function SubscriberForm({
         </div>
         <div className="form-group">
           <label className="form-label">Dia do vencimento *</label>
-          <input type="number" min={1} max={28} className={`form-input ${errors.due_day ? 'error' : ''}`}
+          <input type="number" min={1} max={31} className={`form-input ${errors.due_day ? 'error' : ''}`}
             {...register('due_day', {
               required: 'Obrigatório',
-              min: { value: 1, message: 'Entre 1 e 28' },
-              max: { value: 28, message: 'Entre 1 e 28' },
+              min: { value: 1, message: 'Entre 1 e 31' },
+              max: { value: 31, message: 'Entre 1 e 31' },
               valueAsNumber: true,
             })} />
           {errors.due_day && <span className="form-error"><AlertCircle size={12} />{errors.due_day.message}</span>}
@@ -347,7 +376,10 @@ function DetailPanel({
   const [addVehicle, setAddVehicle] = useState(false)
   const [addPayment, setAddPayment] = useState(false)
   const [confirmDeactivate, setConfirmDeactivate] = useState(false)
+  const [confirmDeletePaymentId, setConfirmDeletePaymentId] = useState<number | null>(null)
   const [amountDigits, setAmountDigits] = useState('')
+  const [editingDueDay, setEditingDueDay] = useState(false)
+  const [dueDayValue, setDueDayValue] = useState<string>(String(sub.due_day))
 
   const { data: colors = [] } = useQuery<Color[]>({ queryKey: ['colors'], queryFn: getColors, staleTime: Infinity })
   const { data: models = [] } = useQuery<VehicleModel[]>({ queryKey: ['models'], queryFn: getModels, staleTime: Infinity })
@@ -420,6 +452,26 @@ function DetailPanel({
     },
   })
 
+  const updateDueDayMut = useMutation({
+    mutationFn: (day: number) => updateSubscriber(sub.id, { due_day: day }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['subscriber', sub.id] })
+      qc.invalidateQueries({ queryKey: ['subscribers'] })
+      toast('Dia de vencimento atualizado', 'success')
+      setEditingDueDay(false)
+    },
+  })
+
+  const removePaymentMut = useMutation({
+    mutationFn: (paymentId: number) => removeSubscriberPayment(sub.id, paymentId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['subscriber', sub.id] })
+      qc.invalidateQueries({ queryKey: ['subscribers'] })
+      toast('Pagamento removido', 'info')
+      setConfirmDeletePaymentId(null)
+    },
+  })
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', zIndex: 90, display: 'flex', justifyContent: 'flex-end' }}
       onClick={onClose}>
@@ -429,12 +481,19 @@ function DetailPanel({
           <div>
             <div style={{ fontFamily: 'Barlow Condensed', fontSize: 22, fontWeight: 900, letterSpacing: '0.03em' }}>{sub.name}</div>
             <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{fmtCPF(sub.cpf)}</div>
-            <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
               {sub.is_active
                 ? <StatusBadge status={sub.status} />
                 : <StatusBadge status="inactive" />
               }
-              <span className="badge badge-regular" style={{ borderColor: 'var(--border)' }}>Vence dia {sub.due_day}</span>
+              <button
+                  onClick={() => { setDueDayValue(String(sub.due_day)); setEditingDueDay(true) }}
+                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                  title="Clique para alterar o dia de vencimento"
+                >
+                  <DueBadge dueDay={sub.due_day} />
+                  <Pencil size={17} color="var(--text-dim)" />
+                </button>
             </div>
           </div>
           <button className="modal-close" onClick={onClose}><X size={16} /></button>
@@ -485,14 +544,22 @@ function DetailPanel({
           </div>
           {sub.vehicles.length === 0
             ? <div className="text-muted" style={{ fontSize: 13 }}>Nenhum veículo cadastrado</div>
-            : sub.vehicles.map((v) => (
-              <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
-                <div className="td-plate">{v.plate}</div>
-                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => removeVehicleMut.mutate(v.id)}>
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            ))
+            : sub.vehicles.map((v) => {
+              const modelName = v.model_id ? models.find((m) => m.id === v.model_id)?.name : null
+              const colorName = v.color_id ? colors.find((c) => c.id === v.color_id)?.name : null
+              const info = [modelName, colorName].filter(Boolean).join(' · ')
+              return (
+                <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+                  <div>
+                    <div className="td-plate">{v.plate}</div>
+                    {info && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>{info}</div>}
+                  </div>
+                  <button className="btn btn-ghost btn-icon btn-sm" onClick={() => removeVehicleMut.mutate(v.id)}>
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              )
+            })
           }
         </div>
 
@@ -507,16 +574,52 @@ function DetailPanel({
           {sub.payments.length === 0
             ? <div className="text-muted" style={{ fontSize: 13 }}>Sem histórico de pagamentos</div>
             : sub.payments.slice(0, 6).map((p) => (
-              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>
-                    {new Date(p.reference_month + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+              <div key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>
+                      {new Date(p.reference_month + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'capitalize' }}>{p.payment_method}</div>
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'capitalize' }}>{p.payment_method}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div className="mono" style={{ fontSize: 14, fontWeight: 700, color: 'var(--green)' }}>
+                      R$ {Number(p.amount).toFixed(2).replace('.', ',')}
+                    </div>
+                    <button
+                      className="btn btn-ghost btn-icon btn-sm"
+                      style={{ color: 'var(--text-dim)' }}
+                      title="Remover pagamento"
+                      onClick={() => setConfirmDeletePaymentId(p.id)}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
                 </div>
-                <div className="mono" style={{ fontSize: 14, fontWeight: 700, color: 'var(--green)' }}>
-                  R$ {Number(p.amount).toFixed(2).replace('.', ',')}
-                </div>
+                {confirmDeletePaymentId === p.id && (
+                  <div style={{ background: 'var(--red-bg)', border: '1px solid var(--red-border)', borderRadius: 6, padding: '8px 10px', marginBottom: 8 }}>
+                    <div style={{ fontSize: 12, color: 'var(--red)', marginBottom: 8 }}>
+                      Remover este pagamento? O status do mensalista será reavaliado.
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        className="btn btn-sm"
+                        style={{ background: 'var(--red)', color: '#fff', flex: 1 }}
+                        onClick={() => removePaymentMut.mutate(p.id)}
+                        disabled={removePaymentMut.isPending}
+                      >
+                        {removePaymentMut.isPending ? 'Removendo…' : 'Confirmar'}
+                      </button>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        style={{ flex: 1 }}
+                        onClick={() => setConfirmDeletePaymentId(null)}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))
           }
@@ -613,6 +716,51 @@ function DetailPanel({
             {addVehicleMut.isPending ? 'Salvando…' : 'Salvar Veículo'}
           </button>
         </form>
+      </Modal>
+
+      {/* Edit due day modal */}
+      <Modal open={editingDueDay} onClose={() => { setEditingDueDay(false); setDueDayValue(String(sub.due_day)) }} title="Alterar Vencimento">
+        <div style={{ padding: '4px 0 8px' }}>
+          <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 24, lineHeight: 1.5 }}>
+            Novo dia de vencimento para <strong style={{ color: 'var(--text)' }}>{sub.name}</strong>
+          </p>
+          <div className="form-group">
+            <label className="form-label">Dia do mês (1 – 31)</label>
+            <input
+              type="number"
+              min={1}
+              max={31}
+              value={dueDayValue}
+              onChange={(e) => setDueDayValue(e.target.value)}
+              className="form-input"
+              style={{
+                fontSize: 28, textAlign: 'center', fontFamily: 'JetBrains Mono',
+                fontWeight: 700, padding: '14px 16px', letterSpacing: '0.06em',
+              }}
+              autoFocus
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+            <button
+              className="btn btn-secondary"
+              style={{ flex: 1 }}
+              onClick={() => { setEditingDueDay(false); setDueDayValue(String(sub.due_day)) }}
+            >
+              Cancelar
+            </button>
+            <button
+              className="btn btn-primary"
+              style={{ flex: 1 }}
+              disabled={updateDueDayMut.isPending || !dueDayValue || Number(dueDayValue) < 1 || Number(dueDayValue) > 31}
+              onClick={() => updateDueDayMut.mutate(Number(dueDayValue))}
+            >
+              {updateDueDayMut.isPending
+                ? <><div className="spinner" style={{ width: 15, height: 15 }} /> Salvando…</>
+                : 'Confirmar'
+              }
+            </button>
+          </div>
+        </div>
       </Modal>
 
       {/* Add payment modal — key forces remount on each open */}
@@ -745,20 +893,29 @@ export default function Subscribers() {
         city: d.city || undefined,
         state: d.state || undefined,
       })
+      const failedPlates: string[] = []
       for (const v of d.vehicles) {
         if (v.plate) {
-          await addSubscriberVehicle(sub.id, {
-            plate: v.plate.toUpperCase(),
-            model_id: v.model_id ? Number(v.model_id) : undefined,
-            color_id: v.color_id ? Number(v.color_id) : undefined,
-          })
+          try {
+            await addSubscriberVehicle(sub.id, {
+              plate: v.plate.toUpperCase(),
+              model_id: v.model_id ? Number(v.model_id) : undefined,
+              color_id: v.color_id ? Number(v.color_id) : undefined,
+            })
+          } catch {
+            failedPlates.push(v.plate.toUpperCase())
+          }
         }
       }
-      return sub
+      return { sub, failedPlates }
     },
-    onSuccess: () => {
+    onSuccess: ({ failedPlates }) => {
       qc.invalidateQueries({ queryKey: ['subscribers'] })
-      toast('Mensalista criado', 'success')
+      if (failedPlates.length > 0) {
+        toast(`Mensalista criado. Veículo(s) ${failedPlates.join(', ')} não foram cadastrados — adicione-os pelo cadastro do mensalista.`, 'info')
+      } else {
+        toast('Mensalista criado', 'success')
+      }
       setCreateOpen(false)
     },
   })
@@ -839,10 +996,9 @@ export default function Subscribers() {
             <thead>
               <tr>
                 <th>Nome</th>
-                <th>CPF</th>
-                <th>Telefone</th>
-                <th>Dia Venc.</th>
-                <th>Status</th>
+                <th>Vencimento</th>
+                <th className="col-desktop">Telefone</th>
+                <th className="col-desktop">Status</th>
                 <th></th>
               </tr>
             </thead>
@@ -850,10 +1006,11 @@ export default function Subscribers() {
               {filtered.map((s) => (
                 <tr key={s.id} style={{ cursor: 'pointer' }} onClick={() => setDetailId(s.id)}>
                   <td style={{ fontWeight: 600 }}>{s.name}</td>
-                  <td className="mono" style={{ fontSize: 13 }}>{fmtCPF(s.cpf)}</td>
-                  <td>{fmtPhone(s.phone)}</td>
-                  <td className="text-center">{s.due_day}</td>
-                  <td>
+                  <td><DueBadge dueDay={s.due_day} /></td>
+                  <td className="col-desktop" style={{ color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', fontSize: 13 }}>
+                    {fmtPhone(s.phone)}
+                  </td>
+                  <td className="col-desktop">
                     {s.is_active
                       ? <StatusBadge status={s.status} />
                       : <StatusBadge status="inactive" />

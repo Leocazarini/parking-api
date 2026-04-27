@@ -6,7 +6,7 @@ from typing import Optional
 
 from pydantic import BaseModel, field_validator
 
-PLATE_MERCOSUL = re.compile(r"^[A-Z]{3}[0-9][A-F][0-9]{2}$")
+PLATE_MERCOSUL = re.compile(r"^[A-Z]{3}[0-9][A-I][0-9]{2}$")
 PLATE_OLD = re.compile(r"^[A-Z]{3}[0-9]{4}$")
 
 

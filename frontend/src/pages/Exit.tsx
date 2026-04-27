@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Search, Clock, Banknote, CreditCard, Smartphone, CheckCircle, Car } from 'lucide-react'
@@ -6,6 +6,7 @@ import { getActiveEntries, registerExit, getConfig } from '../api/parking'
 import { useToast } from '../hooks/useToast'
 import { StatusBadge } from '../components/StatusBadge'
 import type { ActiveEntry, ParkingConfig, ExitResponse, PaymentMethod } from '../types'
+import { fmtDuration, parseApiDate } from '../utils'
 
 const COLOR_MAP: Record<string, string> = {
   Branco: '#F8F9FA', Prata: '#9CA3AF', Preto: '#1F2937', Cinza: '#6B7280',
@@ -22,7 +23,7 @@ const PAYMENT_OPTS: { value: PaymentMethod; label: string; icon: typeof Banknote
 ]
 
 function calcCharge(entryAt: string, config: ParkingConfig): number {
-  const mins = (Date.now() - new Date(entryAt).getTime()) / 60000
+  const mins = (Date.now() - parseApiDate(entryAt).getTime()) / 60000
   if (mins <= config.tolerance_minutes) return 0
   const hours = mins / 60
   const charged = hours * Number(config.hourly_rate)
@@ -34,12 +35,8 @@ function formatBRL(value: number): string {
 }
 
 function durationStr(entryAt: string): string {
-  const ms = Date.now() - new Date(entryAt).getTime()
-  const mins = Math.floor(ms / 60000)
-  if (mins < 60) return `${mins}min`
-  const h = Math.floor(mins / 60)
-  const m = mins % 60
-  return m > 0 ? `${h}h ${m}min` : `${h}h`
+  const ms = Date.now() - parseApiDate(entryAt).getTime()
+  return fmtDuration(ms / 60000)
 }
 
 export default function Exit() {
@@ -51,6 +48,12 @@ export default function Exit() {
   const [selected, setSelected] = useState<ActiveEntry | null>(null)
   const [payment, setPayment] = useState<PaymentMethod | null>(null)
   const [result, setResult] = useState<ExitResponse | null>(null)
+
+  const [, tick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => tick(n => n + 1), 60_000)
+    return () => clearInterval(id)
+  }, [])
 
   const { data: vehicles = [], isLoading } = useQuery<ActiveEntry[]>({
     queryKey: ['active-entries'],

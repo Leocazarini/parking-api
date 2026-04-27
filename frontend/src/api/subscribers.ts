@@ -7,12 +7,12 @@ import type {
 } from '../types'
 
 export async function getSubscribers(): Promise<Subscriber[]> {
-  const { data } = await api.get<Subscriber[]>('/subscribers')
+  const { data } = await api.get<Subscriber[]>('/api/subscribers')
   return data
 }
 
 export async function getSubscriber(id: number): Promise<SubscriberDetail> {
-  const { data } = await api.get<SubscriberDetail>(`/subscribers/${id}`)
+  const { data } = await api.get<SubscriberDetail>(`/api/subscribers/${id}`)
   return data
 }
 
@@ -33,7 +33,7 @@ export async function createSubscriber(payload: {
   email?: string
   due_day: number
 } & SubscriberAddress): Promise<Subscriber> {
-  const { data } = await api.post<Subscriber>('/subscribers', payload)
+  const { data } = await api.post<Subscriber>('/api/subscribers', payload)
   return data
 }
 
@@ -41,21 +41,21 @@ export async function updateSubscriber(
   id: number,
   payload: { name?: string; phone?: string; email?: string; due_day?: number } & SubscriberAddress
 ): Promise<Subscriber> {
-  const { data } = await api.put<Subscriber>(`/subscribers/${id}`, payload)
+  const { data } = await api.put<Subscriber>(`/api/subscribers/${id}`, payload)
   return data
 }
 
 export async function deleteSubscriber(id: number): Promise<void> {
-  await api.delete(`/subscribers/${id}`)
+  await api.delete(`/api/subscribers/${id}`)
 }
 
 export async function reactivateSubscriber(id: number): Promise<SubscriberDetail> {
-  const { data } = await api.patch<SubscriberDetail>(`/subscribers/${id}/reactivate`)
+  const { data } = await api.patch<SubscriberDetail>(`/api/subscribers/${id}/reactivate`)
   return data
 }
 
 export async function getSubscriberVehicles(id: number): Promise<SubscriberVehicle[]> {
-  const { data } = await api.get<SubscriberVehicle[]>(`/subscribers/${id}/vehicles`)
+  const { data } = await api.get<SubscriberVehicle[]>(`/api/subscribers/${id}/vehicles`)
   return data
 }
 
@@ -64,7 +64,7 @@ export async function addSubscriberVehicle(
   payload: { plate: string; model_id?: number; color_id?: number }
 ): Promise<SubscriberVehicle> {
   const { data } = await api.post<SubscriberVehicle>(
-    `/subscribers/${subscriberId}/vehicles`,
+    `/api/subscribers/${subscriberId}/vehicles`,
     payload
   )
   return data
@@ -74,7 +74,7 @@ export async function removeSubscriberVehicle(
   subscriberId: number,
   vehicleId: number
 ): Promise<void> {
-  await api.delete(`/subscribers/${subscriberId}/vehicles/${vehicleId}`)
+  await api.delete(`/api/subscribers/${subscriberId}/vehicles/${vehicleId}`)
 }
 
 export async function registerSubscriberPayment(
@@ -88,18 +88,25 @@ export async function registerSubscriberPayment(
   }
 ): Promise<SubscriberPayment> {
   const { data } = await api.post<SubscriberPayment>(
-    `/subscribers/${subscriberId}/payments`,
+    `/api/subscribers/${subscriberId}/payments`,
     payload
   )
   return data
 }
 
 export async function getSubscriberPayments(id: number): Promise<SubscriberPayment[]> {
-  const { data } = await api.get<SubscriberPayment[]>(`/subscribers/${id}/payments`)
+  const { data } = await api.get<SubscriberPayment[]>(`/api/subscribers/${id}/payments`)
   return data
 }
 
+export async function removeSubscriberPayment(
+  subscriberId: number,
+  paymentId: number
+): Promise<void> {
+  await api.delete(`/api/subscribers/${subscriberId}/payments/${paymentId}`)
+}
+
 export async function runOverdueCheck(): Promise<{ checked: number; marked_overdue: number }> {
-  const { data } = await api.post('/subscribers/jobs/check-overdue')
+  const { data } = await api.post('/api/subscribers/jobs/check-overdue')
   return data
 }

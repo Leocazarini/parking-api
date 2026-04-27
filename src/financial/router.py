@@ -1,5 +1,6 @@
 import calendar
 from datetime import date, datetime, timezone
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncConnection
@@ -10,6 +11,8 @@ from src.financial import service
 from src.financial.schemas import (
     DailyRevenueItem,
     HourlyRevenueItem,
+    MonthPaymentItem,
+    OverdueSubscriberItem,
     ParkingSummaryResponse,
     RevenueResponse,
     SubscriberRevenueResponse,
@@ -67,7 +70,7 @@ async def get_hourly_revenue(
     _: dict = Depends(require_admin),
 ):
     if ref_date is None:
-        ref_date = datetime.now(timezone.utc).date()
+        ref_date = datetime.now(ZoneInfo("America/Sao_Paulo")).date()
     return await service.get_hourly_revenue(conn, ref_date)
 
 
@@ -81,3 +84,23 @@ async def get_subscriber_revenue(
     month_start = date(year, month_num, 1)
     month_end = date(year, month_num, calendar.monthrange(year, month_num)[1])
     return await service.get_subscriber_revenue(conn, month_start, month_end)
+
+
+@router.get("/subscribers/overdue-list", response_model=list[OverdueSubscriberItem])
+async def get_overdue_subscribers_list(
+    conn: AsyncConnection = Depends(get_db),
+    _: dict = Depends(require_admin),
+):
+    return await service.get_overdue_subscribers(conn)
+
+
+@router.get("/subscribers/payments-list", response_model=list[MonthPaymentItem])
+async def get_month_payments_list(
+    month: str = Query(..., pattern=r"^\d{4}-\d{2}$"),
+    conn: AsyncConnection = Depends(get_db),
+    _: dict = Depends(require_admin),
+):
+    year, month_num = map(int, month.split("-"))
+    month_start = date(year, month_num, 1)
+    month_end = date(year, month_num, calendar.monthrange(year, month_num)[1])
+    return await service.get_month_payments(conn, month_start, month_end)

@@ -140,6 +140,7 @@ export interface ParkingSummary {
   subscriber_entries: number
   free_exits: number
   average_stay_minutes: number
+  regular_average_stay_minutes: number
   peak_hour: number | null
 }
 
@@ -153,6 +154,23 @@ export interface HourlyRevenueItem {
   hour: number
   today: string
   yesterday: string
+}
+
+export interface OverdueSubscriberItem {
+  id: number
+  name: string
+  cpf: string
+  phone: string | null
+  email: string | null
+  due_day: number
+}
+
+export interface MonthPaymentDetail {
+  subscriber_id: number
+  subscriber_name: string
+  amount: string
+  payment_method: PaymentMethod
+  payment_date: string
 }
 
 export interface YardUpdate {

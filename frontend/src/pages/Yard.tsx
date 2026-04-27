@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 
@@ -7,6 +7,7 @@ import { getActiveEntries } from '../api/parking'
 import { useYardSocket } from '../hooks/useSocket'
 import { StatusBadge } from '../components/StatusBadge'
 import type { ActiveEntry } from '../types'
+import { fmtDuration, parseApiDate } from '../utils'
 
 const COLOR_MAP: Record<string, string> = {
   Branco: '#F8F9FA', Prata: '#9CA3AF', Preto: '#1F2937', Cinza: '#6B7280',
@@ -16,12 +17,8 @@ const COLOR_MAP: Record<string, string> = {
 }
 
 function durationStr(entryAt: string): string {
-  const ms = Date.now() - new Date(entryAt).getTime()
-  const mins = Math.floor(ms / 60000)
-  if (mins < 60) return `${mins}min`
-  const h = Math.floor(mins / 60)
-  const m = mins % 60
-  return m > 0 ? `${h}h ${m}min` : `${h}h`
+  const ms = Date.now() - parseApiDate(entryAt).getTime()
+  return fmtDuration(ms / 60000)
 }
 
 function VehicleRow({ vehicle, onClick }: { vehicle: ActiveEntry; onClick: () => void }) {
@@ -65,6 +62,12 @@ export default function Yard() {
   })
 
   const { occupied, vehicles, connected } = useYardSocket(initial)
+
+  const [, tick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => tick(n => n + 1), 60_000)
+    return () => clearInterval(id)
+  }, [])
 
   const filtered = useMemo(() => {
     const q = search.trim().toUpperCase()

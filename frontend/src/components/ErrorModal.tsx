@@ -12,48 +12,88 @@ interface ParsedError {
   message: string
 }
 
-const STATUS_TITLES: Record<number, string> = {
-  0:   'Sem conexão com o servidor',
-  400: 'Requisição inválida',
-  403: 'Acesso negado',
-  404: 'Recurso não encontrado',
-  409: 'Conflito de dados',
-  422: 'Dados inválidos',
-  429: 'Muitas requisições — aguarde',
-  500: 'Erro interno do servidor',
-  502: 'Serviço indisponível',
-  503: 'Serviço indisponível',
+// Patterns: [regex, friendly message]. Checked in order, first match wins.
+const ERROR_PATTERNS: [RegExp, string][] = [
+  // Auth
+  [/credenciais inválidas/i,          'Usuário ou senha incorretos. Verifique os dados e tente novamente.'],
+  [/token inválido ou expirado/i,     'Sua sessão expirou. Faça login novamente para continuar.'],
+  [/usuário inativo/i,                'Esta conta está desativada. Entre em contato com o administrador.'],
+  [/acesso restrito a administradores/i, 'Você não tem permissão para realizar esta ação.'],
+  [/conta bloqueada/i,                'Muitas tentativas incorretas. Aguarde alguns instantes antes de tentar novamente.'],
+
+  // Parking entries
+  [/já possui entrada ativa/i,        'Este veículo já está no estacionamento. Verifique a lista de veículos presentes.'],
+  [/entrada .* não encontrada ou já finalizada/i, 'Esta saída não pôde ser registrada — a entrada não foi encontrada ou já foi finalizada.'],
+  [/configuração de estacionamento não encontrada/i, 'O estacionamento ainda não está configurado. Acesse as configurações para definir as tarifas.'],
+
+  // Subscribers
+  [/mensalista .* não encontrado/i,   'Mensalista não encontrado. Ele pode ter sido removido.'],
+  [/veículo .* não encontrado/i,      'Veículo não encontrado. Atualize a página e tente novamente.'],
+  [/cpf .* já cadastrado/i,           'Já existe um mensalista com este CPF. Verifique o cadastro existente.'],
+  [/placa .* já cadastrada como veículo de mensalista/i, 'Esta placa já está vinculada a um mensalista.'],
+
+  // Catalog
+  [/cor .* não encontrada/i,          'A cor selecionada não existe. Atualize a página e tente novamente.'],
+  [/modelo .* não encontrado/i,       'O modelo selecionado não existe. Atualize a página e tente novamente.'],
+  [/cor .* está em uso/i,             'Esta cor não pode ser removida pois ainda está sendo usada.'],
+  [/modelo .* está em uso/i,          'Este modelo não pode ser removido pois ainda está sendo utilizado.'],
+  [/cor '.*' já cadastrada/i,         'Já existe uma cor com esse nome. Escolha um nome diferente.'],
+  [/modelo '.*' já cadastrado/i,      'Já existe um modelo com esse nome. Escolha um nome diferente.'],
+
+  // Users
+  [/usuário \d+ não encontrado/i,     'Usuário não encontrado. Atualize a página e tente novamente.'],
+  [/username '.*' já cadastrado/i,    'Este nome de usuário já está em uso. Escolha outro.'],
+  [/email '.*' já cadastrado/i,       'Este e-mail já está cadastrado no sistema.'],
+
+  // Financial
+  [/end_date não pode ser anterior/i, 'A data final não pode ser anterior à data inicial.'],
+]
+
+const STATUS_MESSAGES: Record<number, { title: string; message: string }> = {
+  0:   { title: 'Sem conexão',            message: 'Não foi possível se comunicar com o servidor. Verifique sua internet e tente novamente.' },
+  400: { title: 'Dados inválidos',         message: 'As informações enviadas estão incorretas. Verifique os campos e tente novamente.' },
+  403: { title: 'Acesso negado',           message: 'Você não tem permissão para realizar esta ação.' },
+  404: { title: 'Não encontrado',          message: 'O item solicitado não foi encontrado. Atualize a página e tente novamente.' },
+  409: { title: 'Registro duplicado',      message: 'Já existe um cadastro com essas informações no sistema.' },
+  422: { title: 'Campos inválidos',        message: 'Alguns campos estão com informações inválidas. Verifique e corrija antes de continuar.' },
+  429: { title: 'Muitas tentativas',       message: 'Você fez muitas tentativas em pouco tempo. Aguarde um momento e tente novamente.' },
+  500: { title: 'Erro no servidor',        message: 'Ocorreu um problema interno. Tente novamente em instantes.' },
+  502: { title: 'Servidor indisponível',   message: 'O servidor está temporariamente fora do ar. Tente novamente em alguns instantes.' },
+  503: { title: 'Serviço indisponível',    message: 'O serviço está temporariamente fora do ar. Tente novamente em breve.' },
+}
+
+function translateDetail(raw: string): string {
+  for (const [pattern, friendly] of ERROR_PATTERNS) {
+    if (pattern.test(raw)) return friendly
+  }
+  return ''
 }
 
 function parseError(status: number, data: unknown): ParsedError {
-  const title = STATUS_TITLES[status] ?? `Erro ${status}`
-
   if (status === 0) {
-    return {
-      status,
-      title,
-      message: 'Não foi possível se comunicar com o servidor. Verifique sua conexão e tente novamente.',
-    }
+    return { status, title: STATUS_MESSAGES[0].title, message: STATUS_MESSAGES[0].message }
   }
 
-  let message = 'Ocorreu um erro inesperado. Tente novamente ou contate o suporte.'
+  const fallback = STATUS_MESSAGES[status] ?? {
+    title: `Erro ${status}`,
+    message: 'Ocorreu um erro inesperado. Tente novamente ou contate o suporte.',
+  }
 
   if (data && typeof data === 'object') {
     const d = data as Record<string, unknown>
+
     if (typeof d.detail === 'string') {
-      message = d.detail
-    } else if (Array.isArray(d.detail)) {
-      message = (d.detail as Array<{ msg?: string; loc?: string[] }>)
-        .map((e) => {
-          const field = e.loc?.filter((s) => s !== 'body').slice(-1)[0]
-          return field ? `${field}: ${e.msg}` : (e.msg ?? '')
-        })
-        .filter(Boolean)
-        .join('\n')
+      const friendly = translateDetail(d.detail)
+      return { status, title: fallback.title, message: friendly || fallback.message }
+    }
+
+    if (Array.isArray(d.detail)) {
+      // Pydantic validation errors — always show a generic friendly message
+      return { status, title: fallback.title, message: fallback.message }
     }
   }
 
-  return { status, title, message }
+  return { status, title: fallback.title, message: fallback.message }
 }
 
 export function ErrorModal() {
@@ -163,18 +203,6 @@ export function ErrorModal() {
               }}>
                 {error.title}
               </div>
-              {error.status > 0 && (
-                <div style={{
-                  fontSize: 11,
-                  fontFamily: 'JetBrains Mono, monospace',
-                  fontWeight: 600,
-                  color: 'var(--text-muted)',
-                  marginTop: 2,
-                  letterSpacing: '0.06em',
-                }}>
-                  HTTP {error.status}
-                </div>
-              )}
             </div>
           </div>
           <button

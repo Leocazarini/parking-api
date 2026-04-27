@@ -51,9 +51,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     ;(async () => {
       try {
         const { default: axios } = await import('axios')
-        const { data } = await axios.post('/auth/refresh', { refresh_token: refreshToken })
-        setAccessToken(data.access_token)
-        localStorage.setItem('refresh_token', data.refresh_token)
+
+        let refreshData: { access_token: string; refresh_token: string }
+        try {
+          const { data } = await axios.post('/api/auth/refresh', { refresh_token: refreshToken })
+          refreshData = data
+        } catch (firstErr: unknown) {
+          // Token explicitamente rejeitado (4xx) — não tenta de novo
+          const status = (firstErr as { response?: { status?: number } })?.response?.status
+          if (status && status < 500) throw firstErr
+          // Erro de rede ou servidor (5xx) — aguarda 2s e tenta uma vez mais
+          await new Promise((r) => setTimeout(r, 2000))
+          const { data } = await axios.post('/api/auth/refresh', { refresh_token: refreshToken })
+          refreshData = data
+        }
+
+        setAccessToken(refreshData.access_token)
+        localStorage.setItem('refresh_token', refreshData.refresh_token)
         const user = await getMe()
         setState({ user, isLoading: false, isAuthenticated: true })
       } catch {
