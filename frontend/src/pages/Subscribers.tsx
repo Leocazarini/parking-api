@@ -380,6 +380,9 @@ function DetailPanel({
   const [amountDigits, setAmountDigits] = useState('')
   const [editingDueDay, setEditingDueDay] = useState(false)
   const [dueDayValue, setDueDayValue] = useState<string>(String(sub.due_day))
+  const [editingPhone, setEditingPhone] = useState(false)
+  const [editingEmail, setEditingEmail] = useState(false)
+  const [editingAddress, setEditingAddress] = useState(false)
 
   const { data: colors = [] } = useQuery<Color[]>({ queryKey: ['colors'], queryFn: getColors, staleTime: Infinity })
   const { data: models = [] } = useQuery<VehicleModel[]>({ queryKey: ['models'], queryFn: getModels, staleTime: Infinity })
@@ -393,6 +396,34 @@ function DetailPanel({
     register: regP, handleSubmit: hsP, control: controlP,
     formState: { errors: errorsP },
   } = useForm<{ amount: number; reference_month: string; payment_date: string; payment_method: string; notes?: string }>()
+
+  const {
+    register: regPhone, handleSubmit: hsPhone,
+    formState: { errors: errorsPhone },
+  } = useForm<{ phone: string }>({ defaultValues: { phone: sub.phone ?? '' } })
+
+  const {
+    register: regEmail, handleSubmit: hsEmail,
+    formState: { errors: errorsEmail },
+  } = useForm<{ email: string }>({ defaultValues: { email: sub.email ?? '' } })
+
+  const {
+    register: regAddr, handleSubmit: hsAddr,
+    formState: { errors: errorsAddr },
+  } = useForm<{
+    zip_code: string; street: string; number: string
+    complement: string; neighborhood: string; city: string; state: string
+  }>({
+    defaultValues: {
+      zip_code: sub.zip_code ?? '',
+      street: sub.street ?? '',
+      number: sub.number ?? '',
+      complement: sub.complement ?? '',
+      neighborhood: sub.neighborhood ?? '',
+      city: sub.city ?? '',
+      state: sub.state ?? '',
+    },
+  })
 
   const plateAddField = regV('plate', {
     required: 'Placa obrigatória',
@@ -462,6 +493,14 @@ function DetailPanel({
     },
   })
 
+  const updateContactMut = useMutation({
+    mutationFn: (d: Parameters<typeof updateSubscriber>[1]) => updateSubscriber(sub.id, d),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['subscriber', sub.id] })
+      qc.invalidateQueries({ queryKey: ['subscribers'] })
+    },
+  })
+
   const removePaymentMut = useMutation({
     mutationFn: (paymentId: number) => removeSubscriberPayment(sub.id, paymentId),
     onSuccess: () => {
@@ -487,7 +526,16 @@ function DetailPanel({
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
           <div className="card" style={{ padding: 12 }}>
-            <div className="stat-label">Telefone</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="stat-label">Telefone</div>
+              <button
+                onClick={() => setEditingPhone(true)}
+                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', lineHeight: 1 }}
+                title="Editar telefone"
+              >
+                <Pencil size={12} color="var(--text-dim)" />
+              </button>
+            </div>
             <div style={{ fontSize: 13, marginTop: 6 }}>{fmtPhone(sub.phone)}</div>
           </div>
           <div className="card" style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -513,18 +561,36 @@ function DetailPanel({
             </div>
           </div>
           <div className="card" style={{ padding: 12, gridColumn: '1 / -1' }}>
-            <div className="stat-label">E-mail</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="stat-label">E-mail</div>
+              <button
+                onClick={() => setEditingEmail(true)}
+                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', lineHeight: 1 }}
+                title="Editar e-mail"
+              >
+                <Pencil size={12} color="var(--text-dim)" />
+              </button>
+            </div>
             <div style={{ fontSize: 13, marginTop: 6, wordBreak: 'break-all' }}>{sub.email ?? '—'}</div>
           </div>
         </div>
 
         {/* Address */}
-        {(sub.street || sub.neighborhood || sub.city) && (
-          <div className="card" style={{ padding: 12, marginBottom: 20 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+        <div className="card" style={{ padding: 12, marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <MapPin size={13} color="var(--amber)" />
               <span className="stat-label" style={{ margin: 0 }}>Endereço</span>
             </div>
+            <button
+              onClick={() => setEditingAddress(true)}
+              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', lineHeight: 1 }}
+              title="Editar endereço"
+            >
+              <Pencil size={12} color="var(--text-dim)" />
+            </button>
+          </div>
+          {(sub.street || sub.neighborhood || sub.city || sub.zip_code) ? (
             <div style={{ fontSize: 13, lineHeight: 1.6 }}>
               {sub.street && (
                 <div>
@@ -539,8 +605,10 @@ function DetailPanel({
                 <div style={{ color: 'var(--text-muted)', marginTop: 2 }}>CEP {sub.zip_code}</div>
               )}
             </div>
-          </div>
-        )}
+          ) : (
+            <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>Não informado</div>
+          )}
+        </div>
 
         {/* Vehicles */}
         <div style={{ marginBottom: 20 }}>
@@ -864,6 +932,163 @@ function DetailPanel({
           </div>
           <button type="submit" className="btn btn-primary w-full" disabled={paymentMut.isPending}>
             {paymentMut.isPending ? 'Salvando…' : 'Registrar Pagamento'}
+          </button>
+        </form>
+      </Modal>
+
+      {/* Edit phone modal */}
+      <Modal open={editingPhone} onClose={() => setEditingPhone(false)} title="Editar Telefone">
+        <form key={String(editingPhone)} onSubmit={hsPhone((d) => {
+          updateContactMut.mutate(
+            { phone: d.phone || undefined },
+            {
+              onSuccess: () => { toast('Telefone atualizado', 'success'); setEditingPhone(false) },
+            }
+          )
+        })}>
+          <div className="form-group">
+            <label className="form-label">Telefone</label>
+            <input
+              className={`form-input ${errorsPhone.phone ? 'error' : ''}`}
+              placeholder="(11) 99999-9999"
+              maxLength={15}
+              autoFocus
+              {...regPhone('phone', {
+                validate: (v) => {
+                  if (!v) return true
+                  const d = v.replace(/\D/g, '')
+                  return (d.length === 10 || d.length === 11) || 'Telefone deve ter 10 ou 11 dígitos'
+                },
+              })}
+            />
+            {errorsPhone.phone && <span className="form-error"><AlertCircle size={12} />{errorsPhone.phone.message}</span>}
+          </div>
+          <button type="submit" className="btn btn-primary w-full" disabled={updateContactMut.isPending}>
+            {updateContactMut.isPending ? 'Salvando…' : 'Salvar'}
+          </button>
+        </form>
+      </Modal>
+
+      {/* Edit email modal */}
+      <Modal open={editingEmail} onClose={() => setEditingEmail(false)} title="Editar E-mail">
+        <form key={String(editingEmail)} onSubmit={hsEmail((d) => {
+          updateContactMut.mutate(
+            { email: d.email || undefined },
+            {
+              onSuccess: () => { toast('E-mail atualizado', 'success'); setEditingEmail(false) },
+            }
+          )
+        })}>
+          <div className="form-group">
+            <label className="form-label">E-mail</label>
+            <input
+              type="email"
+              className={`form-input ${errorsEmail.email ? 'error' : ''}`}
+              maxLength={255}
+              autoFocus
+              {...regEmail('email', {
+                pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'E-mail inválido' },
+                maxLength: { value: 255, message: 'Máximo 255 caracteres' },
+              })}
+            />
+            {errorsEmail.email && <span className="form-error"><AlertCircle size={12} />{errorsEmail.email.message}</span>}
+          </div>
+          <button type="submit" className="btn btn-primary w-full" disabled={updateContactMut.isPending}>
+            {updateContactMut.isPending ? 'Salvando…' : 'Salvar'}
+          </button>
+        </form>
+      </Modal>
+
+      {/* Edit address modal */}
+      <Modal open={editingAddress} onClose={() => setEditingAddress(false)} title="Editar Endereço">
+        <form key={String(editingAddress)} onSubmit={hsAddr((d) => {
+          updateContactMut.mutate(
+            {
+              zip_code: d.zip_code || undefined,
+              street: d.street || undefined,
+              number: d.number || undefined,
+              complement: d.complement || undefined,
+              neighborhood: d.neighborhood || undefined,
+              city: d.city || undefined,
+              state: d.state || undefined,
+            },
+            {
+              onSuccess: () => { toast('Endereço atualizado', 'success'); setEditingAddress(false) },
+            }
+          )
+        })}>
+          <div className="grid-2">
+            <div className="form-group">
+              <label className="form-label">CEP</label>
+              <input
+                className={`form-input ${errorsAddr.zip_code ? 'error' : ''}`}
+                placeholder="00000-000"
+                maxLength={9}
+                {...regAddr('zip_code', {
+                  validate: (v) => {
+                    if (!v) return true
+                    return v.replace(/\D/g, '').length === 8 || 'CEP deve ter 8 dígitos'
+                  },
+                })}
+              />
+              {errorsAddr.zip_code && <span className="form-error"><AlertCircle size={12} />{errorsAddr.zip_code.message}</span>}
+            </div>
+            <div className="form-group">
+              <label className="form-label">Estado (UF)</label>
+              {(() => {
+                const sf = regAddr('state', {
+                  maxLength: { value: 2, message: 'Máximo 2 caracteres' },
+                  validate: (v) => !v || /^[A-Z]{2}$/i.test(v) || '2 letras maiúsculas. Ex: SP',
+                })
+                return (
+                  <input
+                    ref={sf.ref}
+                    name={sf.name}
+                    onBlur={sf.onBlur}
+                    className={`form-input ${errorsAddr.state ? 'error' : ''}`}
+                    placeholder="SP"
+                    maxLength={2}
+                    onChange={(e) => {
+                      e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, '')
+                      sf.onChange(e)
+                    }}
+                  />
+                )
+              })()}
+              {errorsAddr.state && <span className="form-error"><AlertCircle size={12} />{errorsAddr.state.message}</span>}
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Rua / Logradouro</label>
+            <input className="form-input" placeholder="Rua das Flores" maxLength={255}
+              {...regAddr('street', { maxLength: { value: 255, message: 'Máximo 255 caracteres' } })} />
+          </div>
+          <div className="grid-2">
+            <div className="form-group">
+              <label className="form-label">Número</label>
+              <input className="form-input" placeholder="123" maxLength={10}
+                {...regAddr('number', { maxLength: { value: 10, message: 'Máximo 10 caracteres' } })} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Complemento</label>
+              <input className="form-input" placeholder="Apto 4" maxLength={100}
+                {...regAddr('complement', { maxLength: { value: 100, message: 'Máximo 100 caracteres' } })} />
+            </div>
+          </div>
+          <div className="grid-2">
+            <div className="form-group">
+              <label className="form-label">Bairro</label>
+              <input className="form-input" maxLength={255}
+                {...regAddr('neighborhood', { maxLength: { value: 255, message: 'Máximo 255 caracteres' } })} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Cidade</label>
+              <input className="form-input" maxLength={255}
+                {...regAddr('city', { maxLength: { value: 255, message: 'Máximo 255 caracteres' } })} />
+            </div>
+          </div>
+          <button type="submit" className="btn btn-primary w-full" style={{ marginTop: 4 }} disabled={updateContactMut.isPending}>
+            {updateContactMut.isPending ? 'Salvando…' : 'Salvar Endereço'}
           </button>
         </form>
       </Modal>
