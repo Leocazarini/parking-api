@@ -171,6 +171,7 @@ export interface MonthPaymentDetail {
   amount: string
   payment_method: PaymentMethod
   payment_date: string
+  notes: string | null
 }
 
 export interface YardUpdate {

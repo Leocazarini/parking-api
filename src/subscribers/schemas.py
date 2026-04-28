@@ -273,6 +273,14 @@ class PaymentResponse(BaseModel):
     created_at: datetime
 
 
+class SubscriberBasic(BaseModel):
+    id: int
+    name: str
+    due_day: int
+    status: str
+    is_active: bool
+
+
 class SubscriberDetail(SubscriberResponse):
     vehicles: list[VehicleResponse] = []
     payments: list[PaymentResponse] = []

@@ -20,6 +20,21 @@ async def list_subscribers(conn: AsyncConnection) -> list[dict]:
     return [dict(row._mapping) for row in result]
 
 
+async def list_active_subscribers(conn: AsyncConnection) -> list[dict]:
+    result = await conn.execute(
+        select(
+            subscriber.c.id,
+            subscriber.c.name,
+            subscriber.c.due_day,
+            subscriber.c.status,
+            subscriber.c.is_active,
+        )
+        .where(subscriber.c.is_active == True)  # noqa: E712
+        .order_by(subscriber.c.name)
+    )
+    return [dict(row._mapping) for row in result]
+
+
 async def create_subscriber(conn: AsyncConnection, data: dict) -> dict:
     existing = await conn.execute(
         select(subscriber).where(subscriber.c.cpf == data["cpf"])

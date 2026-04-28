@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../hooks/useToast'
+import { useKeyboardScroll } from '../hooks/useKeyboardScroll'
 import { ToastContainer } from './Toast'
 import type { ReactNode } from 'react'
 
@@ -34,6 +35,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const [confirmLogout, setConfirmLogout] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const isAdmin = user?.role === 'admin'
+  useKeyboardScroll()
 
   useEffect(() => { setMenuOpen(false) }, [location.pathname])
 

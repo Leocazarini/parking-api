@@ -1,13 +1,14 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from src.auth.dependencies import require_admin
+from src.auth.dependencies import require_admin, require_operator_or_admin
 from src.database import get_db
 from src.subscribers import service
 from src.subscribers.schemas import (
     OverdueJobResponse,
     PaymentCreate,
     PaymentResponse,
+    SubscriberBasic,
     SubscriberCreate,
     SubscriberDetail,
     SubscriberResponse,
@@ -30,6 +31,14 @@ async def run_overdue_job(
     _: dict = Depends(require_admin),
 ):
     return await service.check_overdue(conn)
+
+
+@router.get("/active", response_model=list[SubscriberBasic])
+async def list_active_subscribers(
+    conn: AsyncConnection = Depends(get_db),
+    _: dict = Depends(require_operator_or_admin),
+):
+    return await service.list_active_subscribers(conn)
 
 
 @router.get("", response_model=list[SubscriberResponse])
@@ -131,7 +140,7 @@ async def create_payment(
     subscriber_id: int,
     data: PaymentCreate,
     conn: AsyncConnection = Depends(get_db),
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_operator_or_admin),
 ):
     return await service.create_payment(conn, subscriber_id, data.model_dump())
 

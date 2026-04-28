@@ -69,3 +69,4 @@ class MonthPaymentItem(BaseModel):
     amount: Decimal
     payment_method: str
     payment_date: date
+    notes: Optional[str] = None

@@ -11,6 +11,11 @@ export async function getSubscribers(): Promise<Subscriber[]> {
   return data
 }
 
+export async function getActiveSubscribers(): Promise<Pick<Subscriber, 'id' | 'name' | 'due_day' | 'status' | 'is_active'>[]> {
+  const { data } = await api.get('/api/subscribers/active')
+  return data
+}
+
 export async function getSubscriber(id: number): Promise<SubscriberDetail> {
   const { data } = await api.get<SubscriberDetail>(`/api/subscribers/${id}`)
   return data

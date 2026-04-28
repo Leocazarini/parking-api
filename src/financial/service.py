@@ -240,6 +240,7 @@ async def get_month_payments(
             subscriber_payment.c.amount,
             subscriber_payment.c.payment_method,
             subscriber_payment.c.payment_date,
+            subscriber_payment.c.notes,
         )
         .join(subscriber, subscriber_payment.c.subscriber_id == subscriber.c.id)
         .where(

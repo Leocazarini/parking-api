@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Controller, useForm } from 'react-hook-form'
 import { Search, ArrowLeft, CreditCard, Users, AlertCircle } from 'lucide-react'
-import { getSubscribers, registerSubscriberPayment } from '../api/subscribers'
+import { getActiveSubscribers, registerSubscriberPayment } from '../api/subscribers'
 import { StatusBadge } from '../components/StatusBadge'
 import { useToast } from '../hooks/useToast'
 import type { Subscriber } from '../types'
@@ -31,22 +31,17 @@ export default function SubscriberPayment() {
   const { toast } = useToast()
   const qc = useQueryClient()
   const [nameSearch, setNameSearch] = useState('')
-  const [selected, setSelected] = useState<Subscriber | null>(null)
+  const [selected, setSelected] = useState<Pick<Subscriber, 'id' | 'name' | 'due_day' | 'status' | 'is_active'> | null>(null)
   const [amountDigits, setAmountDigits] = useState('')
 
   const today = new Date().toISOString().split('T')[0]
   const currentMonth = today.slice(0, 7)
 
-  const { data: subscribers = [], isLoading } = useQuery<Subscriber[]>({
-    queryKey: ['subscribers'],
-    queryFn: getSubscribers,
+  const { data: activeSubscribers = [], isLoading } = useQuery({
+    queryKey: ['subscribers-active'],
+    queryFn: getActiveSubscribers,
     staleTime: 60_000,
   })
-
-  const activeSubscribers = useMemo(
-    () => subscribers.filter((s) => s.is_active),
-    [subscribers]
-  )
 
   const filtered = useMemo(() => {
     const q = nameSearch.trim().toLowerCase()
@@ -73,7 +68,7 @@ export default function SubscriberPayment() {
         reference_month: d.reference_month + '-01',
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['subscribers'] })
+      qc.invalidateQueries({ queryKey: ['subscribers-active'] })
       toast('Pagamento registrado com sucesso', 'success')
       setSelected(null)
       setAmountDigits('')
@@ -177,27 +172,35 @@ export default function SubscriberPayment() {
                     className={`form-input mono ${fieldState.error ? 'error' : ''}`}
                     style={{ fontSize: 28, textAlign: 'center', letterSpacing: '0.06em', fontWeight: 700, padding: '16px' }}
                     value={`R$ ${fmtCurrency(amountDigits)}`}
-                    readOnly
                     name={field.name}
                     ref={field.ref}
                     onBlur={field.onBlur}
                     autoFocus
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, '')
+                      const next = digits.replace(/^0+/, '') || ''
+                      if (next.length <= 9) {
+                        setAmountDigits(next)
+                        field.onChange(next ? parseInt(next, 10) / 100 : 0)
+                      }
+                    }}
                     onKeyDown={(e) => {
+                      if (e.key === 'Unidentified') return
+                      if (e.metaKey || e.ctrlKey) return
+                      if (['Tab', 'Enter', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return
+                      e.preventDefault()
                       if (e.key >= '0' && e.key <= '9') {
-                        e.preventDefault()
                         const next = (amountDigits + e.key).replace(/^0+/, '') || '0'
                         if (next.length <= 9) {
                           setAmountDigits(next)
                           field.onChange(parseInt(next, 10) / 100)
                         }
-                      } else if (e.key === 'Backspace') {
-                        e.preventDefault()
+                      } else if (e.key === 'Backspace' || e.key === 'Delete') {
                         const next = amountDigits.slice(0, -1)
                         setAmountDigits(next)
                         field.onChange(next ? parseInt(next, 10) / 100 : 0)
                       }
                     }}
-                    onClick={(e) => (e.target as HTMLInputElement).focus()}
                   />
                   {fieldState.error && (
                     <span className="form-error"><AlertCircle size={12} />{fieldState.error.message}</span>

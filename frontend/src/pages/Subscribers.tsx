@@ -477,24 +477,10 @@ function DetailPanel({
       onClick={onClose}>
       <div style={{ background: 'var(--surface)', borderLeft: '1px solid var(--border-light)', width: '100%', maxWidth: 440, height: '100%', overflowY: 'auto', padding: 24, animation: 'modal-up 0.3s cubic-bezier(0.16,1,0.3,1)' }}
         onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
           <div>
-            <div style={{ fontFamily: 'Barlow Condensed', fontSize: 22, fontWeight: 900, letterSpacing: '0.03em' }}>{sub.name}</div>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{fmtCPF(sub.cpf)}</div>
-            <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-              {sub.is_active
-                ? <StatusBadge status={sub.status} />
-                : <StatusBadge status="inactive" />
-              }
-              <button
-                  onClick={() => { setDueDayValue(String(sub.due_day)); setEditingDueDay(true) }}
-                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
-                  title="Clique para alterar o dia de vencimento"
-                >
-                  <DueBadge dueDay={sub.due_day} />
-                  <Pencil size={17} color="var(--text-dim)" />
-                </button>
-            </div>
+            <div style={{ fontFamily: 'Barlow Condensed', fontSize: 30, fontWeight: 900, letterSpacing: '0.02em', lineHeight: 1.1 }}>{sub.name}</div>
+            <div style={{ fontSize: 15, color: 'var(--text-muted)', marginTop: 4, letterSpacing: '0.05em' }}>{fmtCPF(sub.cpf)}</div>
           </div>
           <button className="modal-close" onClick={onClose}><X size={16} /></button>
         </div>
@@ -502,11 +488,33 @@ function DetailPanel({
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
           <div className="card" style={{ padding: 12 }}>
             <div className="stat-label">Telefone</div>
-            <div style={{ fontSize: 13, marginTop: 2 }}>{fmtPhone(sub.phone)}</div>
+            <div style={{ fontSize: 13, marginTop: 6 }}>{fmtPhone(sub.phone)}</div>
           </div>
-          <div className="card" style={{ padding: 12 }}>
+          <div className="card" style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div>
+              <div className="stat-label">Status</div>
+              <div style={{ marginTop: 6 }}>
+                {sub.is_active ? <StatusBadge status={sub.status} /> : <StatusBadge status="inactive" />}
+              </div>
+            </div>
+            <div style={{ height: 1, background: 'var(--border-light)' }} />
+            <div>
+              <div className="stat-label">Vencimento</div>
+              <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <DueBadge dueDay={sub.due_day} />
+                <button
+                  onClick={() => { setDueDayValue(String(sub.due_day)); setEditingDueDay(true) }}
+                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', lineHeight: 1 }}
+                  title="Clique para alterar o dia de vencimento"
+                >
+                  <Pencil size={13} color="var(--text-dim)" />
+                </button>
+              </div>
+            </div>
+          </div>
+          <div className="card" style={{ padding: 12, gridColumn: '1 / -1' }}>
             <div className="stat-label">E-mail</div>
-            <div style={{ fontSize: 13, marginTop: 2, wordBreak: 'break-all' }}>{sub.email ?? '—'}</div>
+            <div style={{ fontSize: 13, marginTop: 6, wordBreak: 'break-all' }}>{sub.email ?? '—'}</div>
           </div>
         </div>
 
@@ -581,6 +589,9 @@ function DetailPanel({
                       {new Date(p.reference_month + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'capitalize' }}>{p.payment_method}</div>
+                    {p.notes && (
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, fontStyle: 'italic' }}>{p.notes}</div>
+                    )}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div className="mono" style={{ fontSize: 14, fontWeight: 700, color: 'var(--green)' }}>
@@ -783,26 +794,34 @@ function DetailPanel({
                     className={`form-input mono ${fieldState.error ? 'error' : ''}`}
                     style={{ fontSize: 18, textAlign: 'right', letterSpacing: '0.04em' }}
                     value={`R$ ${fmtCurrency(amountDigits)}`}
-                    readOnly
                     name={field.name}
                     ref={field.ref}
                     onBlur={field.onBlur}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, '')
+                      const next = digits.replace(/^0+/, '') || ''
+                      if (next.length <= 9) {
+                        setAmountDigits(next)
+                        field.onChange(next ? parseInt(next, 10) / 100 : 0)
+                      }
+                    }}
                     onKeyDown={(e) => {
+                      if (e.key === 'Unidentified') return
+                      if (e.metaKey || e.ctrlKey) return
+                      if (['Tab', 'Enter', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return
+                      e.preventDefault()
                       if (e.key >= '0' && e.key <= '9') {
-                        e.preventDefault()
                         const next = (amountDigits + e.key).replace(/^0+/, '') || '0'
                         if (next.length <= 9) {
                           setAmountDigits(next)
                           field.onChange(parseInt(next, 10) / 100)
                         }
-                      } else if (e.key === 'Backspace') {
-                        e.preventDefault()
+                      } else if (e.key === 'Backspace' || e.key === 'Delete') {
                         const next = amountDigits.slice(0, -1)
                         setAmountDigits(next)
                         field.onChange(next ? parseInt(next, 10) / 100 : 0)
                       }
                     }}
-                    onClick={(e) => (e.target as HTMLInputElement).focus()}
                   />
                   {fieldState.error && <span className="form-error"><AlertCircle size={12} />{fieldState.error.message}</span>}
                 </div>

@@ -277,6 +277,11 @@ function PaymentsModal({
                         {new Date(p.payment_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
                       </span>
                     </div>
+                    {p.notes && (
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, fontStyle: 'italic' }}>
+                        {p.notes}
+                      </div>
+                    )}
                   </div>
                   <div style={{
                     fontFamily: 'JetBrains Mono', fontWeight: 700,
