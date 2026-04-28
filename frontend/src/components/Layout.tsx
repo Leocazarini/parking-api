@@ -201,10 +201,6 @@ export function Layout({ children }: { children: ReactNode }) {
       <div className="main-content">
         <header className="mobile-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div className="mobile-header-logo">
-              <div className="mobile-header-logo-mark"><Car size={16} /></div>
-              PARKSYS
-            </div>
             <button
               className={`btn btn-ghost btn-icon hamburger-btn${menuOpen ? ' open' : ''}`}
               onClick={() => setMenuOpen((v) => !v)}
@@ -214,6 +210,10 @@ export function Layout({ children }: { children: ReactNode }) {
                 <span /><span /><span />
               </span>
             </button>
+            <div className="mobile-header-logo">
+              <div className="mobile-header-logo-mark"><Car size={16} /></div>
+              PARKSYS
+            </div>
           </div>
           <div style={{ display: 'flex', gap: 4 }}>
             <button className="btn btn-ghost btn-icon" onClick={toggle} aria-label={themeLabel}>
