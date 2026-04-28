@@ -1,3 +1,4 @@
+import calendar
 from datetime import date
 from typing import Optional
 
@@ -7,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from src.subscribers.exceptions import (
     DuplicateCPFError,
     DuplicatePlateError,
+    PaymentNotFoundError,
     SubscriberNotFoundError,
     VehicleNotFoundError,
 )
@@ -15,6 +17,21 @@ from src.subscribers.tables import subscriber, subscriber_payment, subscriber_ve
 
 async def list_subscribers(conn: AsyncConnection) -> list[dict]:
     result = await conn.execute(select(subscriber).order_by(subscriber.c.name))
+    return [dict(row._mapping) for row in result]
+
+
+async def list_active_subscribers(conn: AsyncConnection) -> list[dict]:
+    result = await conn.execute(
+        select(
+            subscriber.c.id,
+            subscriber.c.name,
+            subscriber.c.due_day,
+            subscriber.c.status,
+            subscriber.c.is_active,
+        )
+        .where(subscriber.c.is_active == True)  # noqa: E712
+        .order_by(subscriber.c.name)
+    )
     return [dict(row._mapping) for row in result]
 
 
@@ -76,8 +93,18 @@ async def delete_subscriber(conn: AsyncConnection, subscriber_id: int) -> None:
     await conn.execute(
         update(subscriber)
         .where(subscriber.c.id == subscriber_id)
-        .values(status="suspended")
+        .values(is_active=False)
     )
+
+
+async def reactivate_subscriber(conn: AsyncConnection, subscriber_id: int) -> dict:
+    await _require_subscriber(conn, subscriber_id)
+    await conn.execute(
+        update(subscriber)
+        .where(subscriber.c.id == subscriber_id)
+        .values(is_active=True)
+    )
+    return await get_subscriber(conn, subscriber_id)
 
 
 async def list_vehicles(conn: AsyncConnection, subscriber_id: int) -> list[dict]:
@@ -155,6 +182,27 @@ async def create_payment(
     return dict(row.first()._mapping)
 
 
+async def remove_payment(
+    conn: AsyncConnection, subscriber_id: int, payment_id: int
+) -> None:
+    row = await conn.execute(
+        select(subscriber_payment)
+        .where(subscriber_payment.c.id == payment_id)
+        .where(subscriber_payment.c.subscriber_id == subscriber_id)
+    )
+    payment = row.first()
+    if not payment:
+        raise PaymentNotFoundError(payment_id)
+
+    deleted_month: date = payment.reference_month
+
+    await conn.execute(
+        subscriber_payment.delete().where(subscriber_payment.c.id == payment_id)
+    )
+
+    await _recheck_overdue_after_removal(conn, subscriber_id, deleted_month)
+
+
 async def detect_by_plate(conn: AsyncConnection, plate: str) -> Optional[dict]:
     result = await conn.execute(
         select(
@@ -164,7 +212,10 @@ async def detect_by_plate(conn: AsyncConnection, plate: str) -> Optional[dict]:
             subscriber.c.status,
         )
         .join(subscriber, subscriber_vehicle.c.subscriber_id == subscriber.c.id)
-        .where(subscriber_vehicle.c.plate == plate)
+        .where(
+            subscriber_vehicle.c.plate == plate,
+            subscriber.c.is_active == True,  # noqa: E712
+        )
     )
     row = result.first()
     return dict(row._mapping) if row else None
@@ -177,13 +228,18 @@ async def check_overdue(
     current_month = date(today.year, today.month, 1)
 
     result = await conn.execute(
-        select(subscriber).where(subscriber.c.status == "active")
+        select(subscriber).where(
+            subscriber.c.is_active == True,  # noqa: E712
+            subscriber.c.status == "active",
+        )
     )
     active_subs = result.fetchall()
 
     marked = 0
     for sub in active_subs:
-        if today.day >= sub.due_day:
+        last_day = calendar.monthrange(today.year, today.month)[1]
+        effective_due = min(sub.due_day, last_day)
+        if today.day >= effective_due:
             payment = await conn.execute(
                 select(subscriber_payment)
                 .where(subscriber_payment.c.subscriber_id == sub.id)
@@ -208,6 +264,40 @@ async def _require_subscriber(conn: AsyncConnection, subscriber_id: int) -> None
         raise SubscriberNotFoundError(subscriber_id)
 
 
+async def _recheck_overdue_after_removal(
+    conn: AsyncConnection, subscriber_id: int, deleted_month: date
+) -> None:
+    today = date.today()
+    current_month = date(today.year, today.month, 1)
+
+    if deleted_month != current_month:
+        return
+
+    sub_row = await conn.execute(
+        select(subscriber).where(subscriber.c.id == subscriber_id)
+    )
+    sub = sub_row.first()
+    if not sub or not sub.is_active or sub.status != "active":
+        return
+
+    remaining = await conn.execute(
+        select(subscriber_payment)
+        .where(subscriber_payment.c.subscriber_id == subscriber_id)
+        .where(subscriber_payment.c.reference_month == current_month)
+    )
+    if remaining.first():
+        return
+
+    last_day = calendar.monthrange(today.year, today.month)[1]
+    effective_due = min(sub.due_day, last_day)
+    if today.day >= effective_due:
+        await conn.execute(
+            update(subscriber)
+            .where(subscriber.c.id == subscriber_id)
+            .values(status="overdue")
+        )
+
+
 async def _check_and_activate(
     conn: AsyncConnection, subscriber_id: int, reference_month: date
 ) -> None:
@@ -215,7 +305,7 @@ async def _check_and_activate(
         select(subscriber).where(subscriber.c.id == subscriber_id)
     )
     sub = sub_row.first()
-    if not sub or sub.status != "overdue":
+    if not sub or sub.status != "overdue" or not sub.is_active:
         return
 
     today = date.today()

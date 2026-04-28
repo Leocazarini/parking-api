@@ -1,13 +1,14 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from src.auth.dependencies import require_admin
+from src.auth.dependencies import require_admin, require_operator_or_admin
 from src.database import get_db
 from src.subscribers import service
 from src.subscribers.schemas import (
     OverdueJobResponse,
     PaymentCreate,
     PaymentResponse,
+    SubscriberBasic,
     SubscriberCreate,
     SubscriberDetail,
     SubscriberResponse,
@@ -30,6 +31,14 @@ async def run_overdue_job(
     _: dict = Depends(require_admin),
 ):
     return await service.check_overdue(conn)
+
+
+@router.get("/active", response_model=list[SubscriberBasic])
+async def list_active_subscribers(
+    conn: AsyncConnection = Depends(get_db),
+    _: dict = Depends(require_operator_or_admin),
+):
+    return await service.list_active_subscribers(conn)
 
 
 @router.get("", response_model=list[SubscriberResponse])
@@ -77,6 +86,15 @@ async def delete_subscriber(
     await service.delete_subscriber(conn, subscriber_id)
 
 
+@router.patch("/{subscriber_id}/reactivate", response_model=SubscriberDetail)
+async def reactivate_subscriber(
+    subscriber_id: int,
+    conn: AsyncConnection = Depends(get_db),
+    _: dict = Depends(require_admin),
+):
+    return await service.reactivate_subscriber(conn, subscriber_id)
+
+
 @router.get("/{subscriber_id}/vehicles", response_model=list[VehicleResponse])
 async def list_vehicles(
     subscriber_id: int,
@@ -122,7 +140,7 @@ async def create_payment(
     subscriber_id: int,
     data: PaymentCreate,
     conn: AsyncConnection = Depends(get_db),
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_operator_or_admin),
 ):
     return await service.create_payment(conn, subscriber_id, data.model_dump())
 
@@ -134,3 +152,16 @@ async def list_payments(
     _: dict = Depends(require_admin),
 ):
     return await service.list_payments(conn, subscriber_id)
+
+
+@router.delete(
+    "/{subscriber_id}/payments/{payment_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def remove_payment(
+    subscriber_id: int,
+    payment_id: int,
+    conn: AsyncConnection = Depends(get_db),
+    _: dict = Depends(require_admin),
+):
+    await service.remove_payment(conn, subscriber_id, payment_id)

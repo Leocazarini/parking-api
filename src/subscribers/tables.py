@@ -1,5 +1,6 @@
 from sqlalchemy import (
     TIMESTAMP,
+    Boolean,
     Column,
     Date,
     ForeignKey,
@@ -10,6 +11,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 
 from src.database import metadata
@@ -23,7 +25,15 @@ subscriber = Table(
     Column("phone", String(20), nullable=True),
     Column("email", String(255), nullable=True),
     Column("status", String(12), nullable=False, server_default="active"),
+    Column("is_active", Boolean, nullable=False, server_default=text("true")),
     Column("due_day", Integer, nullable=False),
+    Column("zip_code", String(9), nullable=True),
+    Column("street", String(255), nullable=True),
+    Column("number", String(10), nullable=True),
+    Column("complement", String(100), nullable=True),
+    Column("neighborhood", String(100), nullable=True),
+    Column("city", String(100), nullable=True),
+    Column("state", String(2), nullable=True),
     Column(
         "created_at",
         TIMESTAMP(timezone=True),
