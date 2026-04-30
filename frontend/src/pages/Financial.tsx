@@ -205,7 +205,7 @@ function PaymentsModal({
     queryFn: () => getMonthPaymentsList(month),
   })
 
-  const monthLabel = new Date(month + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  const monthLabel = new Date(month + '-01T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
   const total = list.reduce((s, p) => s + Number(p.amount), 0)
 
   return (
@@ -434,7 +434,7 @@ export default function Financial() {
       {/* Daily chart */}
       <div className="card mb-16">
         <div className="card-header">
-          <div className="card-title">Receita Diária — {new Date(month + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</div>
+          <div className="card-title">Receita Diária — {new Date(month + '-01T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</div>
           <div style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>R$</div>
         </div>
         {chartData.length === 0 ? (
@@ -585,7 +585,7 @@ export default function Financial() {
       {/* Subscriber monthly revenue */}
       <div className="card">
         <div className="card-header">
-          <div className="card-title">Mensalidades — {new Date(month + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</div>
+          <div className="card-title">Mensalidades — {new Date(month + '-01T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</div>
         </div>
         <div className="sub-revenue-grid">
           <div className="sub-revenue-item">

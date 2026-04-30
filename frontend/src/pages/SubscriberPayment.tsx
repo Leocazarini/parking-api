@@ -34,8 +34,9 @@ export default function SubscriberPayment() {
   const [selected, setSelected] = useState<Pick<Subscriber, 'id' | 'name' | 'due_day' | 'status' | 'is_active'> | null>(null)
   const [amountDigits, setAmountDigits] = useState('')
 
-  const today = new Date().toISOString().split('T')[0]
-  const currentMonth = today.slice(0, 7)
+  const _now = new Date()
+  const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`
+  const currentMonth = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}`
 
   const { data: activeSubscribers = [], isLoading } = useQuery({
     queryKey: ['subscribers-active'],
