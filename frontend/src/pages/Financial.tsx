@@ -20,12 +20,15 @@ function fmtBRL(v: string | number) {
 }
 
 function fmtDate(d: Date) {
-  return d.toISOString().split('T')[0]
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 const today = new Date()
 const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-const currentMonth = today.toISOString().slice(0, 7)
+const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
 
 function CustomTooltip({ active, payload, label }: {
   active?: boolean; payload?: { value: number }[]; label?: string
