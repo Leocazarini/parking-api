@@ -2,6 +2,7 @@ from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncConnection
@@ -9,10 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from src.parking.tables import parking_entry
 from src.subscribers.tables import subscriber, subscriber_payment
 
+BR_TZ = ZoneInfo("America/Sao_Paulo")
+
 
 def _period_range(start_date: date, end_date: date) -> tuple[datetime, datetime]:
-    start = datetime(start_date.year, start_date.month, start_date.day, 0, 0, 0, tzinfo=timezone.utc)
-    end = datetime(end_date.year, end_date.month, end_date.day, 0, 0, 0, tzinfo=timezone.utc) + timedelta(days=1)
+    start = datetime(start_date.year, start_date.month, start_date.day, 0, 0, 0, tzinfo=BR_TZ)
+    end = datetime(end_date.year, end_date.month, end_date.day, 0, 0, 0, tzinfo=BR_TZ) + timedelta(days=1)
     return start, end
 
 
@@ -36,6 +39,17 @@ async def get_revenue(
         )
     ).fetchall()
 
+    sub_payments = (
+        await conn.execute(
+            select(
+                subscriber_payment.c.amount,
+                subscriber_payment.c.payment_method,
+            )
+            .where(subscriber_payment.c.payment_date >= start_date)
+            .where(subscriber_payment.c.payment_date <= end_date)
+        )
+    ).fetchall()
+
     total = Decimal("0")
     by_payment_method: dict[str, Decimal] = defaultdict(Decimal)
     by_client_type: dict[str, Decimal] = defaultdict(Decimal)
@@ -47,6 +61,12 @@ async def get_revenue(
         by_payment_method[r.payment_method] += amount
         by_client_type[r.client_type] += amount
         total_duration += (r.exit_at - r.entry_at).total_seconds() / 60
+
+    for p in sub_payments:
+        amount = p.amount or Decimal("0")
+        total += amount
+        by_payment_method[p.payment_method] += amount
+        by_client_type["subscriber"] += amount
 
     avg_duration = round(total_duration / len(rows), 2) if rows else 0.0
 
@@ -63,6 +83,7 @@ async def get_revenue(
             "subscriber": by_client_type["subscriber"],
         },
         "entries_count": len(rows),
+        "subscriber_payments_count": len(sub_payments),
         "average_duration_minutes": avg_duration,
     }
 
@@ -82,11 +103,22 @@ async def get_daily_revenue(
         )
     ).fetchall()
 
+    sub_payments = (
+        await conn.execute(
+            select(subscriber_payment.c.payment_date, subscriber_payment.c.amount)
+            .where(subscriber_payment.c.payment_date >= month_start)
+            .where(subscriber_payment.c.payment_date <= month_end)
+        )
+    ).fetchall()
+
     by_day: dict[date, dict] = defaultdict(lambda: {"total": Decimal("0"), "entries_count": 0})
     for r in rows:
-        day = r.exit_at.date()
+        day = r.exit_at.astimezone(BR_TZ).date()
         by_day[day]["total"] += r.amount_charged or Decimal("0")
         by_day[day]["entries_count"] += 1
+
+    for p in sub_payments:
+        by_day[p.payment_date]["total"] += p.amount or Decimal("0")
 
     return [
         {"date": day, "total": data["total"], "entries_count": data["entries_count"]}
@@ -113,6 +145,7 @@ async def get_parking_summary(
     ).fetchall()
 
     completed = [r for r in rows if r.exit_at is not None]
+    regular_completed = [r for r in completed if r.client_type == "regular"]
 
     avg_stay = (
         round(
@@ -124,9 +157,19 @@ async def get_parking_summary(
         else 0.0
     )
 
+    regular_avg_stay = (
+        round(
+            sum((r.exit_at - r.entry_at).total_seconds() / 60 for r in regular_completed)
+            / len(regular_completed),
+            2,
+        )
+        if regular_completed
+        else 0.0
+    )
+
     peak_hour: Optional[int] = None
     if rows:
-        peak_hour = Counter(r.entry_at.hour for r in rows).most_common(1)[0][0]
+        peak_hour = Counter(r.entry_at.astimezone(BR_TZ).hour for r in rows).most_common(1)[0][0]
 
     return {
         "total_entries": len(rows),
@@ -139,6 +182,7 @@ async def get_parking_summary(
             and r.amount_charged == 0
         ),
         "average_stay_minutes": avg_stay,
+        "regular_average_stay_minutes": regular_avg_stay,
         "peak_hour": peak_hour,
     }
 
@@ -165,3 +209,82 @@ async def get_subscriber_revenue(
         "payments_count": len(payments),
         "overdue_count": len(overdue),
     }
+
+
+async def get_overdue_subscribers(conn: AsyncConnection) -> list[dict]:
+    result = await conn.execute(
+        select(
+            subscriber.c.id,
+            subscriber.c.name,
+            subscriber.c.cpf,
+            subscriber.c.phone,
+            subscriber.c.email,
+            subscriber.c.due_day,
+        )
+        .where(
+            subscriber.c.status == "overdue",
+            subscriber.c.is_active == True,  # noqa: E712
+        )
+        .order_by(subscriber.c.name)
+    )
+    return [dict(row._mapping) for row in result]
+
+
+async def get_month_payments(
+    conn: AsyncConnection, month_start: date, month_end: date
+) -> list[dict]:
+    result = await conn.execute(
+        select(
+            subscriber_payment.c.subscriber_id,
+            subscriber.c.name.label("subscriber_name"),
+            subscriber_payment.c.amount,
+            subscriber_payment.c.payment_method,
+            subscriber_payment.c.payment_date,
+            subscriber_payment.c.notes,
+        )
+        .join(subscriber, subscriber_payment.c.subscriber_id == subscriber.c.id)
+        .where(
+            subscriber_payment.c.reference_month >= month_start,
+            subscriber_payment.c.reference_month <= month_end,
+        )
+        .order_by(subscriber_payment.c.payment_date.desc(), subscriber.c.name)
+    )
+    return [dict(row._mapping) for row in result]
+
+
+async def get_hourly_revenue(conn: AsyncConnection, ref_date: date) -> list[dict]:
+    yesterday = ref_date - timedelta(days=1)
+    today_start, today_end = _period_range(ref_date, ref_date)
+    yest_start, yest_end = _period_range(yesterday, yesterday)
+
+    today_rows = (
+        await conn.execute(
+            select(parking_entry.c.exit_at, parking_entry.c.amount_charged)
+            .where(parking_entry.c.exit_at.isnot(None))
+            .where(parking_entry.c.exit_at >= today_start)
+            .where(parking_entry.c.exit_at < today_end)
+        )
+    ).fetchall()
+
+    yest_rows = (
+        await conn.execute(
+            select(parking_entry.c.exit_at, parking_entry.c.amount_charged)
+            .where(parking_entry.c.exit_at.isnot(None))
+            .where(parking_entry.c.exit_at >= yest_start)
+            .where(parking_entry.c.exit_at < yest_end)
+        )
+    ).fetchall()
+
+    today_by_hour: dict[int, Decimal] = defaultdict(Decimal)
+    yest_by_hour: dict[int, Decimal] = defaultdict(Decimal)
+
+    for r in today_rows:
+        today_by_hour[r.exit_at.astimezone(BR_TZ).hour] += r.amount_charged or Decimal("0")
+
+    for r in yest_rows:
+        yest_by_hour[r.exit_at.astimezone(BR_TZ).hour] += r.amount_charged or Decimal("0")
+
+    return [
+        {"hour": h, "today": today_by_hour[h], "yesterday": yest_by_hour[h]}
+        for h in range(24)
+    ]

@@ -18,6 +18,12 @@ from src.subscribers.tables import subscriber as subscriber_table
 from src.subscribers.tables import subscriber_vehicle
 
 
+def _utc_iso(dt: datetime) -> str:
+    if not dt.tzinfo:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S") + "Z"
+
+
 async def _get_yard_state(conn: AsyncConnection) -> dict:
     rows = (
         await conn.execute(
@@ -43,7 +49,7 @@ async def _get_yard_state(conn: AsyncConnection) -> dict:
             "plate": r.plate,
             "color": r.color,
             "model": r.model,
-            "entry_at": r.entry_at.isoformat(),
+            "entry_at": _utc_iso(r.entry_at),
             "client_type": r.client_type,
             "subscriber_status": r.subscriber_status,
         }
@@ -68,7 +74,13 @@ async def get_active_entries(conn: AsyncConnection) -> list[dict]:
         .order_by(parking_entry.c.entry_at.desc())
     )
     result = await conn.execute(query)
-    return [dict(row._mapping) for row in result]
+    rows = []
+    for row in result:
+        d = dict(row._mapping)
+        if d["entry_at"].tzinfo is None:
+            d["entry_at"] = d["entry_at"].replace(tzinfo=timezone.utc)
+        rows.append(d)
+    return rows
 
 
 async def create_entry(
@@ -138,7 +150,7 @@ async def create_entry(
             "plate": entry["plate"],
             "color": color_name,
             "model": model_name,
-            "entry_at": entry["entry_at"].isoformat(),
+            "entry_at": _utc_iso(entry["entry_at"]),
             "client_type": entry["client_type"],
             "subscriber_status": entry["subscriber_status"],
         },
@@ -189,6 +201,9 @@ async def create_exit(
         select(parking_entry).where(parking_entry.c.id == entry_id)
     )
     updated = dict(row.first()._mapping)
+    for field in ("entry_at", "exit_at"):
+        if updated.get(field) and updated[field].tzinfo is None:
+            updated[field] = updated[field].replace(tzinfo=timezone.utc)
 
     entry_at_aware = entry.entry_at if entry.entry_at.tzinfo else entry.entry_at.replace(tzinfo=timezone.utc)
     duration_minutes = int((exit_at - entry_at_aware).total_seconds() / 60)

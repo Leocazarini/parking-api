@@ -28,3 +28,9 @@ async def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
     if current_user["role"] != "admin":
         raise ForbiddenError()
     return current_user
+
+
+async def require_operator_or_admin(current_user: dict = Depends(get_current_user)) -> dict:
+    if current_user["role"] not in ("admin", "operator"):
+        raise ForbiddenError()
+    return current_user
