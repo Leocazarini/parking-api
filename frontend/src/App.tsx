@@ -43,7 +43,7 @@ function PageSpinner() {
 function AuthGuard() {
   const { isAuthenticated, isLoading } = useAuth()
   if (isLoading) return <PageSpinner />
-  if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (!isAuthenticated) return <Navigate to="/gate/auth" replace />
   return (
     <Layout>
       <Suspense fallback={<PageSpinner />}>
@@ -68,7 +68,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route
-        path="/login"
+        path="/gate/auth"
         element={
           isAuthenticated ? <Navigate to="/yard" replace /> : (
             <Suspense fallback={<PageSpinner />}>

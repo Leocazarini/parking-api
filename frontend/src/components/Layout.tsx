@@ -42,7 +42,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const handleLogout = async () => {
     await logout()
     toast('Sessão encerrada', 'info')
-    navigate('/login')
+    navigate('/gate/auth')
   }
 
   const initials = user?.username?.slice(0, 2).toUpperCase() ?? '??'

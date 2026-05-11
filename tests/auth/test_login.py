@@ -11,7 +11,7 @@ from src.config import settings
 @pytest.mark.asyncio
 async def test_login_valid_credentials(client: AsyncClient, admin_user: dict):
     resp = await client.post(
-        "/auth/login",
+        "/gate/auth/login",
         json={"username": admin_user["username"], "password": admin_user["password"]},
     )
     assert resp.status_code == 200
@@ -24,7 +24,7 @@ async def test_login_valid_credentials(client: AsyncClient, admin_user: dict):
 @pytest.mark.asyncio
 async def test_login_access_token_has_correct_claims(client: AsyncClient, admin_user: dict):
     resp = await client.post(
-        "/auth/login",
+        "/gate/auth/login",
         json={"username": admin_user["username"], "password": admin_user["password"]},
     )
     token = resp.json()["access_token"]
@@ -37,7 +37,7 @@ async def test_login_access_token_has_correct_claims(client: AsyncClient, admin_
 @pytest.mark.asyncio
 async def test_login_wrong_password_returns_401(client: AsyncClient, admin_user: dict):
     resp = await client.post(
-        "/auth/login",
+        "/gate/auth/login",
         json={"username": admin_user["username"], "password": "wrongpassword"},
     )
     assert resp.status_code == 401
@@ -46,7 +46,7 @@ async def test_login_wrong_password_returns_401(client: AsyncClient, admin_user:
 @pytest.mark.asyncio
 async def test_login_unknown_user_returns_401(client: AsyncClient):
     resp = await client.post(
-        "/auth/login",
+        "/gate/auth/login",
         json={"username": "naoexiste", "password": "qualquer"},
     )
     assert resp.status_code == 401
@@ -55,12 +55,12 @@ async def test_login_unknown_user_returns_401(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_refresh_valid_token(client: AsyncClient, admin_user: dict):
     login_resp = await client.post(
-        "/auth/login",
+        "/gate/auth/login",
         json={"username": admin_user["username"], "password": admin_user["password"]},
     )
     refresh_token = login_resp.json()["refresh_token"]
 
-    resp = await client.post("/auth/refresh", json={"refresh_token": refresh_token})
+    resp = await client.post("/gate/auth/refresh", json={"refresh_token": refresh_token})
     assert resp.status_code == 200
     data = resp.json()
     assert "access_token" in data
@@ -70,7 +70,7 @@ async def test_refresh_valid_token(client: AsyncClient, admin_user: dict):
 @pytest.mark.asyncio
 async def test_refresh_generates_new_tokens(client: AsyncClient, admin_user: dict):
     login_resp = await client.post(
-        "/auth/login",
+        "/gate/auth/login",
         json={"username": admin_user["username"], "password": admin_user["password"]},
     )
     tokens = login_resp.json()
@@ -78,7 +78,7 @@ async def test_refresh_generates_new_tokens(client: AsyncClient, admin_user: dic
     original_refresh = tokens["refresh_token"]
 
     refresh_resp = await client.post(
-        "/auth/refresh", json={"refresh_token": original_refresh}
+        "/gate/auth/refresh", json={"refresh_token": original_refresh}
     )
     new_tokens = refresh_resp.json()
     assert new_tokens["access_token"] != original_access
@@ -87,19 +87,19 @@ async def test_refresh_generates_new_tokens(client: AsyncClient, admin_user: dic
 
 @pytest.mark.asyncio
 async def test_refresh_invalid_token_returns_401(client: AsyncClient):
-    resp = await client.post("/auth/refresh", json={"refresh_token": "token.invalido.aqui"})
+    resp = await client.post("/gate/auth/refresh", json={"refresh_token": "token.invalido.aqui"})
     assert resp.status_code == 401
 
 
 @pytest.mark.asyncio
 async def test_refresh_with_access_token_returns_401(client: AsyncClient, admin_user: dict):
     login_resp = await client.post(
-        "/auth/login",
+        "/gate/auth/login",
         json={"username": admin_user["username"], "password": admin_user["password"]},
     )
     access_token = login_resp.json()["access_token"]
 
-    resp = await client.post("/auth/refresh", json={"refresh_token": access_token})
+    resp = await client.post("/gate/auth/refresh", json={"refresh_token": access_token})
     assert resp.status_code == 401
 
 
@@ -113,14 +113,14 @@ async def test_refresh_expired_token_returns_401(client: AsyncClient, admin_user
     }
     expired_token = jwt.encode(expired_payload, settings.SECRET_KEY, algorithm=settings.JWT_ALG)
 
-    resp = await client.post("/auth/refresh", json={"refresh_token": expired_token})
+    resp = await client.post("/gate/auth/refresh", json={"refresh_token": expired_token})
     assert resp.status_code == 401
 
 
 @pytest.mark.asyncio
 async def test_logout_invalidates_refresh_token(client: AsyncClient, admin_user: dict):
     login_resp = await client.post(
-        "/auth/login",
+        "/gate/auth/login",
         json={"username": admin_user["username"], "password": admin_user["password"]},
     )
     tokens = login_resp.json()
@@ -128,18 +128,18 @@ async def test_logout_invalidates_refresh_token(client: AsyncClient, admin_user:
     refresh_token = tokens["refresh_token"]
 
     logout_resp = await client.post(
-        "/auth/logout",
+        "/gate/auth/logout",
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert logout_resp.status_code == 204
 
-    refresh_resp = await client.post("/auth/refresh", json={"refresh_token": refresh_token})
+    refresh_resp = await client.post("/gate/auth/refresh", json={"refresh_token": refresh_token})
     assert refresh_resp.status_code == 401
 
 
 @pytest.mark.asyncio
 async def test_logout_requires_auth(client: AsyncClient):
-    resp = await client.post("/auth/logout")
+    resp = await client.post("/gate/auth/logout")
     assert resp.status_code == 401
 
 
@@ -156,7 +156,7 @@ async def test_login_inactive_user_returns_401(client: AsyncClient, db_engine):
             )
         )
     resp = await client.post(
-        "/auth/login", json={"username": "inativo", "password": "senha123"}
+        "/gate/auth/login", json={"username": "inativo", "password": "senha123"}
     )
     # authenticate checks password first — inactive users with correct pwd still get in at login
     # but get_current_user rejects them on subsequent requests

@@ -7,7 +7,7 @@ from src.auth.schemas import LoginRequest, RefreshRequest, TokenResponse
 from src.database import get_db
 from src.limiter import limiter
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/gate/auth", tags=["auth"])
 
 
 @router.post("/login", response_model=TokenResponse)

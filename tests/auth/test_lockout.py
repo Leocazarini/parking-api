@@ -30,12 +30,12 @@ async def lockout_user(db_engine):
 async def test_failed_login_does_not_lock_before_five(client: AsyncClient, lockout_user):
     for _ in range(4):
         await client.post(
-            "/auth/login",
+            "/gate/auth/login",
             json={"username": lockout_user["username"], "password": "wrong"},
         )
 
     resp = await client.post(
-        "/auth/login",
+        "/gate/auth/login",
         json={"username": lockout_user["username"], "password": lockout_user["password"]},
     )
     assert resp.status_code == 200
@@ -45,7 +45,7 @@ async def test_failed_login_does_not_lock_before_five(client: AsyncClient, locko
 async def test_account_locked_after_five_failures(client: AsyncClient, lockout_user):
     for _ in range(5):
         await client.post(
-            "/auth/login",
+            "/gate/auth/login",
             json={"username": lockout_user["username"], "password": "wrong"},
         )
 
@@ -53,7 +53,7 @@ async def test_account_locked_after_five_failures(client: AsyncClient, lockout_u
     limiter._storage.reset()
 
     resp = await client.post(
-        "/auth/login",
+        "/gate/auth/login",
         json={"username": lockout_user["username"], "password": lockout_user["password"]},
     )
     assert resp.status_code == 423
@@ -63,14 +63,14 @@ async def test_account_locked_after_five_failures(client: AsyncClient, lockout_u
 async def test_locked_account_message_includes_time(client: AsyncClient, lockout_user):
     for _ in range(5):
         await client.post(
-            "/auth/login",
+            "/gate/auth/login",
             json={"username": lockout_user["username"], "password": "wrong"},
         )
 
     limiter._storage.reset()
 
     resp = await client.post(
-        "/auth/login",
+        "/gate/auth/login",
         json={"username": lockout_user["username"], "password": "wrong"},
     )
     assert resp.status_code == 423
@@ -81,12 +81,12 @@ async def test_locked_account_message_includes_time(client: AsyncClient, lockout
 async def test_success_resets_failed_attempts(client: AsyncClient, lockout_user):
     for _ in range(3):
         await client.post(
-            "/auth/login",
+            "/gate/auth/login",
             json={"username": lockout_user["username"], "password": "wrong"},
         )
 
     await client.post(
-        "/auth/login",
+        "/gate/auth/login",
         json={"username": lockout_user["username"], "password": lockout_user["password"]},
     )
 
@@ -95,12 +95,12 @@ async def test_success_resets_failed_attempts(client: AsyncClient, lockout_user)
     # 3 more failures after reset — counter was cleared, should not lock
     for _ in range(3):
         await client.post(
-            "/auth/login",
+            "/gate/auth/login",
             json={"username": lockout_user["username"], "password": "wrong"},
         )
 
     resp = await client.post(
-        "/auth/login",
+        "/gate/auth/login",
         json={"username": lockout_user["username"], "password": lockout_user["password"]},
     )
     assert resp.status_code == 200
@@ -119,7 +119,7 @@ async def test_expired_lockout_allows_login(client: AsyncClient, lockout_user, d
         )
 
     resp = await client.post(
-        "/auth/login",
+        "/gate/auth/login",
         json={"username": lockout_user["username"], "password": lockout_user["password"]},
     )
     assert resp.status_code == 200
