@@ -7,7 +7,7 @@ import { getActiveEntries } from '../api/parking'
 import { useYardSocket } from '../hooks/useSocket'
 import { StatusBadge } from '../components/StatusBadge'
 import type { ActiveEntry } from '../types'
-import { fmtDuration, parseApiDate } from '../utils'
+import { fmtDuration, parseApiDate, formatTicket } from '../utils'
 
 const COLOR_MAP: Record<string, string> = {
   Branco: '#F8F9FA', Prata: '#9CA3AF', Preto: '#1F2937', Cinza: '#6B7280',
@@ -29,7 +29,12 @@ function VehicleRow({ vehicle, onClick }: { vehicle: ActiveEntry; onClick: () =>
 
   return (
     <div className={`vehicle-row ${rowClass}`} onClick={onClick}>
-      <span className="vr-plate">{vehicle.plate}</span>
+      <span className="vr-plate">
+        {vehicle.plate}
+        <span className="mono" style={{ fontSize: 10, color: 'var(--text-dim)', display: 'block', fontWeight: 400, letterSpacing: '0.06em' }}>
+          {formatTicket(vehicle.id)}
+        </span>
+      </span>
       <span className="vr-details">
         <span className="vr-color">
           <span className="color-dot" style={{ background: dotColor }} />

@@ -6,7 +6,7 @@ import { getActiveEntries, registerExit, getConfig } from '../api/parking'
 import { useToast } from '../hooks/useToast'
 import { StatusBadge } from '../components/StatusBadge'
 import type { ActiveEntry, ParkingConfig, ExitResponse, PaymentMethod } from '../types'
-import { fmtDuration, parseApiDate } from '../utils'
+import { fmtDuration, parseApiDate, formatTicket } from '../utils'
 
 const COLOR_MAP: Record<string, string> = {
   Branco: '#F8F9FA', Prata: '#9CA3AF', Preto: '#1F2937', Cinza: '#6B7280',
@@ -24,10 +24,18 @@ const PAYMENT_OPTS: { value: PaymentMethod; label: string; icon: typeof Banknote
 
 function calcCharge(entryAt: string, config: ParkingConfig): number {
   const mins = (Date.now() - parseApiDate(entryAt).getTime()) / 60000
-  if (mins <= config.tolerance_minutes) return 0
-  const hours = mins / 60
-  const charged = hours * Number(config.hourly_rate)
-  return Math.min(charged, Number(config.daily_rate))
+  const tolerance = Number(config.tolerance_minutes)
+  const halfHour = Number(config.half_hour_rate)
+  const hourly = Number(config.hourly_rate)
+  const additionalHour = Number(config.additional_hour_rate)
+  const daily = Number(config.daily_rate)
+
+  if (mins < tolerance) return 0
+  if (mins < 30) return Math.min(halfHour, daily)
+  if (mins < 60) return Math.min(hourly, daily)
+
+  const additionalCompleteHours = Math.floor((mins - 60) / 60)
+  return Math.min(hourly + additionalHour * additionalCompleteHours, daily)
 }
 
 function formatBRL(value: number): string {
@@ -126,7 +134,11 @@ export default function Exit() {
               <CheckCircle size={32} color="var(--green)" />
             </div>
 
-            <div className="vehicle-plate" style={{ fontSize: 28, marginBottom: 16 }}>{result.plate}</div>
+            <div className="vehicle-plate" style={{ fontSize: 28, marginBottom: 8 }}>{result.plate}</div>
+
+            <div className="mono" style={{ fontSize: 13, color: 'var(--text-muted)', letterSpacing: '0.08em', marginBottom: 16 }}>
+              Ticket {formatTicket(result.id)}
+            </div>
 
             <div className="charge-display mb-16">
               <div className="charge-label">Total cobrado</div>
@@ -209,7 +221,12 @@ export default function Exit() {
                     : v.client_type === 'subscriber' ? 'subscriber' : 'regular'
                   return (
                     <div key={v.id} className={`vehicle-row ${rowClass}`} onClick={() => setSelected(v)} style={{ cursor: 'pointer' }}>
-                      <span className="vr-plate">{v.plate}</span>
+                      <span className="vr-plate">
+                        {v.plate}
+                        <span className="mono" style={{ fontSize: 10, color: 'var(--text-dim)', display: 'block', fontWeight: 400, letterSpacing: '0.06em' }}>
+                          {formatTicket(v.id)}
+                        </span>
+                      </span>
                       <span className="vr-details">
                         <span className="vr-color">
                           <span className="color-dot" style={{ background: dotColor }} />
@@ -236,6 +253,9 @@ export default function Exit() {
                 <div>
                   <div className="vehicle-plate" style={{ fontSize: 26, color: 'var(--amber)' }}>
                     {selected.plate}
+                  </div>
+                  <div className="mono" style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.06em', marginTop: 2 }}>
+                    Ticket {formatTicket(selected.id)}
                   </div>
                   <div className="vehicle-meta" style={{ marginTop: 6 }}>
                     <span className="vehicle-meta-item">{selected.color}</span>
@@ -271,7 +291,7 @@ export default function Exit() {
                 </div>
                 {!isFree && charge !== null && (
                   <div className="text-muted" style={{ fontSize: 12, marginTop: 6 }}>
-                    R$ {config.hourly_rate}/h · máx. R$ {config.daily_rate}
+                    até 30min R$ {config.half_hour_rate} · 1h R$ {config.hourly_rate} · +1h R$ {config.additional_hour_rate} · máx. R$ {config.daily_rate}
                   </div>
                 )}
               </div>

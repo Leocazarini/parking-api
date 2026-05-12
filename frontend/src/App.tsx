@@ -11,6 +11,7 @@ const Yard = lazy(() => import('./pages/Yard'))
 const Entry = lazy(() => import('./pages/Entry'))
 const Exit = lazy(() => import('./pages/Exit'))
 const SubscriberPayment = lazy(() => import('./pages/SubscriberPayment'))
+const History = lazy(() => import('./pages/History'))
 const Subscribers = lazy(() => import('./pages/Subscribers'))
 const Financial = lazy(() => import('./pages/Financial'))
 const Users = lazy(() => import('./pages/Users'))
@@ -82,6 +83,7 @@ function AppRoutes() {
         <Route index element={<Navigate to="/yard" replace />} />
         <Route path="/yard"              element={<Yard />} />
         <Route path="/subscriber-payment" element={<SubscriberPayment />} />
+        <Route path="/history"           element={<History />} />
         <Route path="/entry"             element={<Entry />} />
         <Route path="/exit"              element={<Exit />} />
 

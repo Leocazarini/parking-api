@@ -28,6 +28,7 @@ async def _get_yard_state(conn: AsyncConnection) -> dict:
     rows = (
         await conn.execute(
             select(
+                parking_entry.c.id,
                 parking_entry.c.plate,
                 vehicle_color.c.name.label("color"),
                 vehicle_model.c.name.label("model"),
@@ -46,6 +47,7 @@ async def _get_yard_state(conn: AsyncConnection) -> dict:
 
     vehicles = [
         {
+            "id": r.id,
             "plate": r.plate,
             "color": r.color,
             "model": r.model,
@@ -222,6 +224,70 @@ async def create_exit(
     await sio.emit("yard:update", await _get_yard_state(conn), room="yard")
 
     return updated
+
+
+async def get_history(
+    conn: AsyncConnection,
+    page: int = 1,
+    page_size: int = 50,
+    plate: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    client_type: str | None = None,
+) -> dict:
+    from sqlalchemy import func
+
+    base = (
+        select(
+            parking_entry.c.id,
+            parking_entry.c.plate,
+            vehicle_color.c.name.label("color"),
+            vehicle_model.c.name.label("model"),
+            parking_entry.c.client_type,
+            parking_entry.c.entry_at,
+            parking_entry.c.exit_at,
+            parking_entry.c.amount_charged,
+            parking_entry.c.payment_method,
+        )
+        .join(vehicle_color, parking_entry.c.color_id == vehicle_color.c.id)
+        .outerjoin(vehicle_model, parking_entry.c.model_id == vehicle_model.c.id)
+        .where(parking_entry.c.exit_at.isnot(None))
+    )
+
+    if plate:
+        base = base.where(parking_entry.c.plate.ilike(f"%{plate}%"))
+    if date_from:
+        base = base.where(parking_entry.c.entry_at >= date_from)
+    if date_to:
+        base = base.where(parking_entry.c.entry_at <= date_to)
+    if client_type and client_type in ("regular", "subscriber"):
+        base = base.where(parking_entry.c.client_type == client_type)
+
+    total = (await conn.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+
+    rows = (
+        await conn.execute(
+            base.order_by(parking_entry.c.entry_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+    ).fetchall()
+
+    items = []
+    for row in rows:
+        d = dict(row._mapping)
+        for field in ("entry_at", "exit_at"):
+            if d.get(field) and d[field].tzinfo is None:
+                d[field] = d[field].replace(tzinfo=timezone.utc)
+        items.append(d)
+
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "pages": max(1, (total + page_size - 1) // page_size),
+    }
 
 
 async def get_config(conn: AsyncConnection) -> dict:

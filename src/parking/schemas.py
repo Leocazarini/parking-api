@@ -69,6 +69,26 @@ class ExitResponse(BaseModel):
     payment_method: str
 
 
+class HistoryEntryItem(BaseModel):
+    id: int
+    plate: str
+    color: str
+    model: Optional[str] = None
+    client_type: str
+    entry_at: datetime
+    exit_at: datetime
+    amount_charged: Optional[Decimal] = None
+    payment_method: Optional[str] = None
+
+
+class HistoryResponse(BaseModel):
+    items: list[HistoryEntryItem]
+    total: int
+    page: int
+    page_size: int
+    pages: int
+
+
 class ConfigResponse(BaseModel):
     tolerance_minutes: int
     half_hour_rate: Decimal

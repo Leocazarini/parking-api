@@ -7,6 +7,7 @@ import { getColors, getModels } from '../api/catalog'
 import { useToast } from '../hooks/useToast'
 import { StatusBadge } from '../components/StatusBadge'
 import type { Color, VehicleModel, EntryResponse } from '../types'
+import { formatTicket } from '../utils'
 
 const PLATE_MERCOSUL = /^[A-Z]{3}[0-9][A-F][0-9]{2}$/
 const PLATE_OLD = /^[A-Z]{3}[0-9]{4}$/
@@ -194,7 +195,11 @@ export default function Entry() {
               <CheckCircle size={32} color="var(--green)" />
             </div>
 
-            <div className="vehicle-plate" style={{ fontSize: 32, marginBottom: 16 }}>{result.plate}</div>
+            <div className="vehicle-plate" style={{ fontSize: 32, marginBottom: 8 }}>{result.plate}</div>
+
+            <div className="mono" style={{ fontSize: 13, color: 'var(--text-muted)', letterSpacing: '0.08em', marginBottom: 16 }}>
+              Ticket {formatTicket(result.id)}
+            </div>
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 20, flexWrap: 'wrap' }}>
               <StatusBadge status={result.client_type} />

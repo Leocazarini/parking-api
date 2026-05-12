@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import {
   LayoutGrid, Users, BarChart2,
-  Settings, UserCog, Car, Power, Sun, Moon, CreditCard, X,
+  Settings, UserCog, Car, Power, Sun, Moon, CreditCard, X, History,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../hooks/useToast'
@@ -68,6 +68,9 @@ export function Layout({ children }: { children: ReactNode }) {
           </NavLink>
           <NavLink to="/subscriber-payment" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
             <CreditCard size={18} /> Pag. Mensalista
+          </NavLink>
+          <NavLink to="/history" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+            <History size={18} /> Histórico
           </NavLink>
 
           {user?.role === 'admin' && (
@@ -149,6 +152,9 @@ export function Layout({ children }: { children: ReactNode }) {
               </NavLink>
               <NavLink to="/subscriber-payment" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                 <CreditCard size={18} /> Pag. Mensalista
+              </NavLink>
+              <NavLink to="/history" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                <History size={18} /> Histórico
               </NavLink>
 
               {isAdmin && (

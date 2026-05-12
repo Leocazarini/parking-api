@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { ActiveEntry, EntryResponse, ExitResponse, ParkingConfig } from '../types'
+import type { ActiveEntry, EntryResponse, ExitResponse, ParkingConfig, HistoryResponse } from '../types'
 
 export async function getActiveEntries(): Promise<ActiveEntry[]> {
   const { data } = await api.get<ActiveEntry[]>('/api/patio/ativos')
@@ -23,5 +23,19 @@ export async function getConfig(): Promise<ParkingConfig> {
 
 export async function updateConfig(patch: Partial<ParkingConfig>): Promise<ParkingConfig> {
   const { data } = await api.put<ParkingConfig>('/api/patio/config', patch)
+  return data
+}
+
+export interface HistoryParams {
+  page?: number
+  page_size?: number
+  plate?: string
+  date_from?: string
+  date_to?: string
+  client_type?: string
+}
+
+export async function getHistory(params: HistoryParams = {}): Promise<HistoryResponse> {
+  const { data } = await api.get<HistoryResponse>('/api/patio/historico', { params })
   return data
 }

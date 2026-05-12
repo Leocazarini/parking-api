@@ -182,6 +182,26 @@ export interface MonthlyRevenueItem {
   previous_year: string
 }
 
+export interface HistoryEntry {
+  id: number
+  plate: string
+  color: string
+  model: string | null
+  client_type: 'regular' | 'subscriber'
+  entry_at: string
+  exit_at: string
+  amount_charged: string | null
+  payment_method: string | null
+}
+
+export interface HistoryResponse {
+  items: HistoryEntry[]
+  total: number
+  page: number
+  page_size: number
+  pages: number
+}
+
 export interface YardUpdate {
   occupied: number
   vehicles: ActiveEntry[]
