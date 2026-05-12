@@ -84,7 +84,7 @@ async def get_active_entries(conn: AsyncConnection) -> list[dict]:
 
 
 async def create_entry(
-    conn: AsyncConnection, placa: str, color_id: int, operator_id: int | None = None
+    conn: AsyncConnection, placa: str, color_id: int, model_id: int | None = None, operator_id: int | None = None
 ) -> dict:
     color_result = await conn.execute(
         select(vehicle_color).where(vehicle_color.c.id == color_id)
@@ -102,7 +102,8 @@ async def create_entry(
 
     sub_info = await detect_by_plate(conn, placa)
     client_type = "subscriber" if sub_info else "regular"
-    model_id = sub_info["model_id"] if sub_info else None
+    # subscriber's registered model takes precedence; fall back to manually provided model_id
+    model_id = sub_info["model_id"] if sub_info else model_id
 
     entry_at = datetime.now(timezone.utc)
     result = await conn.execute(

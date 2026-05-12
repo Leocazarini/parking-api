@@ -32,7 +32,7 @@ async def register_entry(
     current_user: dict = Depends(get_current_user),
 ):
     return await service.create_entry(
-        conn, placa=data.placa, color_id=data.color_id, operator_id=current_user["id"]
+        conn, placa=data.placa, color_id=data.color_id, model_id=data.model_id, operator_id=current_user["id"]
     )
 
 

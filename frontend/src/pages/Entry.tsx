@@ -166,8 +166,8 @@ export default function Entry() {
   const selectedModel = watch('model_id')
 
   const mutation = useMutation({
-    mutationFn: ({ plate, color_id }: EntryForm) =>
-      registerEntry(plate, Number(color_id)),
+    mutationFn: ({ plate, color_id, model_id }: EntryForm) =>
+      registerEntry(plate, Number(color_id), model_id ? Number(model_id) : undefined),
     onSuccess: (data) => {
       setResult(data)
       qc.invalidateQueries({ queryKey: ['active-entries'] })

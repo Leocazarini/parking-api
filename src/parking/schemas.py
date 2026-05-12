@@ -20,6 +20,7 @@ class PaymentMethod(StrEnum):
 class EntryCreate(BaseModel):
     placa: str
     color_id: int
+    model_id: Optional[int] = None
 
     @field_validator("placa", mode="before")
     @classmethod

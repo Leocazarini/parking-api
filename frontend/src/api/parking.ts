@@ -6,8 +6,8 @@ export async function getActiveEntries(): Promise<ActiveEntry[]> {
   return data
 }
 
-export async function registerEntry(placa: string, color_id: number): Promise<EntryResponse> {
-  const { data } = await api.post<EntryResponse>('/api/patio/entrada', { placa, color_id })
+export async function registerEntry(placa: string, color_id: number, model_id?: number): Promise<EntryResponse> {
+  const { data } = await api.post<EntryResponse>('/api/patio/entrada', { placa, color_id, model_id: model_id ?? null })
   return data
 }
 
