@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { RevenueResponse, DailyRevenueItem, ParkingSummary, SubscriberRevenue, HourlyRevenueItem, OverdueSubscriberItem, MonthPaymentDetail } from '../types'
+import type { RevenueResponse, DailyRevenueItem, ParkingSummary, SubscriberRevenue, HourlyRevenueItem, OverdueSubscriberItem, MonthPaymentDetail, MonthlyRevenueItem } from '../types'
 
 export async function getRevenue(startDate: string, endDate: string): Promise<RevenueResponse> {
   const { data } = await api.get<RevenueResponse>('/api/financial/revenue', {
@@ -47,6 +47,13 @@ export async function getOverdueSubscribersList(): Promise<OverdueSubscriberItem
 export async function getMonthPaymentsList(month: string): Promise<MonthPaymentDetail[]> {
   const { data } = await api.get<MonthPaymentDetail[]>('/api/financial/subscribers/payments-list', {
     params: { month },
+  })
+  return data
+}
+
+export async function getYearlyRevenue(year: number): Promise<MonthlyRevenueItem[]> {
+  const { data } = await api.get<MonthlyRevenueItem[]>('/api/financial/revenue/yearly', {
+    params: { year },
   })
   return data
 }

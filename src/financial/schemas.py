@@ -70,3 +70,9 @@ class MonthPaymentItem(BaseModel):
     payment_method: str
     payment_date: date
     notes: Optional[str] = None
+
+
+class MonthlyRevenueItem(BaseModel):
+    month: str  # "YYYY-MM"
+    current_year: Decimal
+    previous_year: Decimal

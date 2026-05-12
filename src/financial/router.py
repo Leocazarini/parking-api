@@ -11,6 +11,7 @@ from src.financial import service
 from src.financial.schemas import (
     DailyRevenueItem,
     HourlyRevenueItem,
+    MonthlyRevenueItem,
     MonthPaymentItem,
     OverdueSubscriberItem,
     ParkingSummaryResponse,
@@ -72,6 +73,17 @@ async def get_hourly_revenue(
     if ref_date is None:
         ref_date = datetime.now(ZoneInfo("America/Sao_Paulo")).date()
     return await service.get_hourly_revenue(conn, ref_date)
+
+
+@router.get("/revenue/yearly", response_model=list[MonthlyRevenueItem])
+async def get_yearly_revenue(
+    year: int = Query(default=None),
+    conn: AsyncConnection = Depends(get_db),
+    _: dict = Depends(require_admin),
+):
+    if year is None:
+        year = datetime.now(ZoneInfo("America/Sao_Paulo")).year
+    return await service.get_yearly_revenue(conn, year)
 
 
 @router.get("/subscribers/revenue", response_model=SubscriberRevenueResponse)

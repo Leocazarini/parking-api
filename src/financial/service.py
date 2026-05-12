@@ -252,6 +252,72 @@ async def get_month_payments(
     return [dict(row._mapping) for row in result]
 
 
+async def get_yearly_revenue(conn: AsyncConnection, year: int) -> list[dict]:
+    prev_year = year - 1
+    year_start = date(year, 1, 1)
+    year_end = date(year, 12, 31)
+    prev_start = date(prev_year, 1, 1)
+    prev_end = date(prev_year, 12, 31)
+
+    cur_start_dt, cur_end_dt = _period_range(year_start, year_end)
+    prev_start_dt, prev_end_dt = _period_range(prev_start, prev_end)
+
+    cur_rows = (
+        await conn.execute(
+            select(parking_entry.c.exit_at, parking_entry.c.amount_charged)
+            .where(parking_entry.c.exit_at.isnot(None))
+            .where(parking_entry.c.exit_at >= cur_start_dt)
+            .where(parking_entry.c.exit_at < cur_end_dt)
+        )
+    ).fetchall()
+
+    prev_rows = (
+        await conn.execute(
+            select(parking_entry.c.exit_at, parking_entry.c.amount_charged)
+            .where(parking_entry.c.exit_at.isnot(None))
+            .where(parking_entry.c.exit_at >= prev_start_dt)
+            .where(parking_entry.c.exit_at < prev_end_dt)
+        )
+    ).fetchall()
+
+    cur_sub = (
+        await conn.execute(
+            select(subscriber_payment.c.payment_date, subscriber_payment.c.amount)
+            .where(subscriber_payment.c.payment_date >= year_start)
+            .where(subscriber_payment.c.payment_date <= year_end)
+        )
+    ).fetchall()
+
+    prev_sub = (
+        await conn.execute(
+            select(subscriber_payment.c.payment_date, subscriber_payment.c.amount)
+            .where(subscriber_payment.c.payment_date >= prev_start)
+            .where(subscriber_payment.c.payment_date <= prev_end)
+        )
+    ).fetchall()
+
+    cur_by_month: dict[int, Decimal] = defaultdict(Decimal)
+    prev_by_month: dict[int, Decimal] = defaultdict(Decimal)
+
+    for r in cur_rows:
+        cur_by_month[r.exit_at.astimezone(BR_TZ).month] += r.amount_charged or Decimal("0")
+    for r in prev_rows:
+        prev_by_month[r.exit_at.astimezone(BR_TZ).month] += r.amount_charged or Decimal("0")
+    for p in cur_sub:
+        cur_by_month[p.payment_date.month] += p.amount or Decimal("0")
+    for p in prev_sub:
+        prev_by_month[p.payment_date.month] += p.amount or Decimal("0")
+
+    return [
+        {
+            "month": f"{year}-{m:02d}",
+            "current_year": cur_by_month[m],
+            "previous_year": prev_by_month[m],
+        }
+        for m in range(1, 13)
+    ]
+
+
 async def get_hourly_revenue(conn: AsyncConnection, ref_date: date) -> list[dict]:
     yesterday = ref_date - timedelta(days=1)
     today_start, today_end = _period_range(ref_date, ref_date)

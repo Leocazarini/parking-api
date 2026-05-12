@@ -7,11 +7,11 @@ import {
 import { TrendingUp, Car, Clock, Star, X, AlertTriangle, CheckCircle } from 'lucide-react'
 import {
   getRevenue, getDailyRevenue, getParkingSummary, getSubscriberRevenue,
-  getHourlyRevenue, getOverdueSubscribersList, getMonthPaymentsList,
+  getHourlyRevenue, getOverdueSubscribersList, getMonthPaymentsList, getYearlyRevenue,
 } from '../api/financial'
 import type {
   RevenueResponse, DailyRevenueItem, ParkingSummary, SubscriberRevenue,
-  HourlyRevenueItem, OverdueSubscriberItem, MonthPaymentDetail,
+  HourlyRevenueItem, OverdueSubscriberItem, MonthPaymentDetail, MonthlyRevenueItem,
 } from '../types'
 import { fmtDuration } from '../utils'
 
@@ -315,6 +315,8 @@ function PaymentsModal({
   )
 }
 
+const MONTH_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+
 export default function Financial() {
   const [startDate, setStartDate] = useState(fmtDate(today))
   const [endDate, setEndDate] = useState(fmtDate(today))
@@ -322,6 +324,8 @@ export default function Financial() {
   const [refDate, setRefDate] = useState(fmtDate(today))
   const [showOverdueModal, setShowOverdueModal] = useState(false)
   const [showPaymentsModal, setShowPaymentsModal] = useState(false)
+
+  const currentYear = today.getFullYear()
 
   const { data: revenue } = useQuery<RevenueResponse>({
     queryKey: ['revenue', startDate, endDate],
@@ -348,10 +352,21 @@ export default function Financial() {
     queryFn: () => getHourlyRevenue(refDate),
   })
 
+  const { data: yearly = [] } = useQuery<MonthlyRevenueItem[]>({
+    queryKey: ['yearly-revenue', currentYear],
+    queryFn: () => getYearlyRevenue(currentYear),
+  })
+
   const chartData = daily.map((d) => ({
     date: d.date,
     total: Number(d.total),
     entries: d.entries_count,
+  }))
+
+  const yearlyChartData = yearly.map((item, i) => ({
+    month: MONTH_LABELS[i] ?? item.month,
+    [String(currentYear)]: Number(item.current_year),
+    [String(currentYear - 1)]: Number(item.previous_year),
   }))
 
   return (
@@ -426,6 +441,95 @@ export default function Financial() {
           <div className="stat-sub">
             Pico: {summary?.peak_hour !== null && summary?.peak_hour !== undefined
               ? `${String(summary.peak_hour).padStart(2,'0')}h` : '—'}
+          </div>
+        </div>
+      </div>
+
+      {/* Payment method breakdown */}
+      {revenue && (
+        <div className="card mb-16">
+          <div className="card-header">
+            <div className="card-title">Formas de Pagamento</div>
+          </div>
+          <div className="payment-methods-grid">
+            {(['dinheiro', 'credito', 'debito', 'pix'] as const).map((m) => (
+              <div key={m} className="payment-methods-item">
+                <div className="stat-label">{m}</div>
+                <div className="payment-value">
+                  {fmtBRL(revenue.by_payment_method[m])}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Subscriber monthly revenue */}
+      <div className="card mb-16">
+        <div className="card-header">
+          <div className="card-title">Mensalidades — {new Date(month + '-01T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</div>
+        </div>
+        <div className="sub-revenue-grid">
+          <div className="sub-revenue-item">
+            <div className="stat-label">Recebido</div>
+            <div className="mono sub-revenue-value" style={{ fontSize: 20, fontWeight: 700, color: 'var(--green)', marginTop: 4 }}>
+              {subRevenue ? fmtBRL(subRevenue.total_received) : '—'}
+            </div>
+          </div>
+          <div className="sub-revenue-item">
+            <div className="stat-label">Pagamentos</div>
+            <button
+              onClick={() => subRevenue && subRevenue.payments_count > 0 && setShowPaymentsModal(true)}
+              style={{
+                background: 'none', border: 'none', padding: 0, cursor: subRevenue && subRevenue.payments_count > 0 ? 'pointer' : 'default',
+                display: 'block', textAlign: 'inherit',
+              }}
+            >
+              <div
+                className="mono sub-revenue-value"
+                style={{
+                  fontSize: 20, fontWeight: 700, color: 'var(--text)', marginTop: 4,
+                  textDecoration: subRevenue && subRevenue.payments_count > 0 ? 'underline' : 'none',
+                  textDecorationStyle: 'dotted',
+                  textUnderlineOffset: 3,
+                  textDecorationColor: 'var(--text-dim)',
+                  transition: 'color 0.15s',
+                }}
+                onMouseEnter={e => { if (subRevenue && subRevenue.payments_count > 0) (e.currentTarget as HTMLElement).style.color = 'var(--green)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text)' }}
+              >
+                {subRevenue?.payments_count ?? '—'}
+              </div>
+            </button>
+          </div>
+          <div className="sub-revenue-item">
+            <div className="stat-label">Inadimplentes</div>
+            <button
+              onClick={() => subRevenue !== undefined && setShowOverdueModal(true)}
+              style={{
+                background: 'none', border: 'none', padding: 0,
+                cursor: subRevenue !== undefined ? 'pointer' : 'default',
+                display: 'block', textAlign: 'inherit',
+              }}
+            >
+              <div
+                className="mono sub-revenue-value"
+                style={{
+                  fontSize: 20, fontWeight: 700,
+                  color: subRevenue?.overdue_count ? 'var(--red)' : 'var(--text)',
+                  marginTop: 4,
+                  textDecoration: subRevenue !== undefined ? 'underline' : 'none',
+                  textDecorationStyle: 'dotted',
+                  textUnderlineOffset: 3,
+                  textDecorationColor: subRevenue?.overdue_count ? 'var(--red-border)' : 'var(--text-dim)',
+                  transition: 'opacity 0.15s',
+                }}
+                onMouseEnter={e => { if (subRevenue !== undefined) (e.currentTarget as HTMLElement).style.opacity = '0.75' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
+              >
+                {subRevenue?.overdue_count ?? '—'}
+              </div>
+            </button>
           </div>
         </div>
       </div>
@@ -562,92 +666,80 @@ export default function Financial() {
         </div>
       </div>
 
-      {/* Payment method breakdown */}
-      {revenue && (
-        <div className="card mb-16">
-          <div className="card-header">
-            <div className="card-title">Formas de Pagamento</div>
-          </div>
-          <div className="payment-methods-grid">
-            {(['dinheiro', 'credito', 'debito', 'pix'] as const).map((m) => (
-              <div key={m} className="payment-methods-item">
-                <div className="stat-label">{m}</div>
-                <div className="payment-value">
-                  {fmtBRL(revenue.by_payment_method[m])}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Subscriber monthly revenue */}
+      {/* Yearly comparison chart */}
       <div className="card">
         <div className="card-header">
-          <div className="card-title">Mensalidades — {new Date(month + '-01T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</div>
-        </div>
-        <div className="sub-revenue-grid">
-          <div className="sub-revenue-item">
-            <div className="stat-label">Recebido</div>
-            <div className="mono sub-revenue-value" style={{ fontSize: 20, fontWeight: 700, color: 'var(--green)', marginTop: 4 }}>
-              {subRevenue ? fmtBRL(subRevenue.total_received) : '—'}
+          <div>
+            <div className="card-title">Receita Anual — Comparativo Mensal</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+              {currentYear} vs {currentYear - 1}
             </div>
           </div>
-          <div className="sub-revenue-item">
-            <div className="stat-label">Pagamentos</div>
-            <button
-              onClick={() => subRevenue && subRevenue.payments_count > 0 && setShowPaymentsModal(true)}
-              style={{
-                background: 'none', border: 'none', padding: 0, cursor: subRevenue && subRevenue.payments_count > 0 ? 'pointer' : 'default',
-                display: 'block', textAlign: 'inherit',
-              }}
-            >
-              <div
-                className="mono sub-revenue-value"
-                style={{
-                  fontSize: 20, fontWeight: 700, color: 'var(--text)', marginTop: 4,
-                  textDecoration: subRevenue && subRevenue.payments_count > 0 ? 'underline' : 'none',
-                  textDecorationStyle: 'dotted',
-                  textUnderlineOffset: 3,
-                  textDecorationColor: 'var(--text-dim)',
-                  transition: 'color 0.15s',
+        </div>
+        <div className="chart-wrapper">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={yearlyChartData} margin={{ top: 8, right: 8, bottom: 4, left: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+              <XAxis
+                dataKey="month"
+                tick={{ fontSize: 11, fill: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tickFormatter={(v) => v >= 1000 ? `${+(v / 1000).toFixed(1)}k` : String(v)}
+                tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
+                axisLine={false}
+                tickLine={false}
+                width={42}
+              />
+              <Tooltip
+                content={({ active, payload, label }) => {
+                  if (!active || !payload?.length) return null
+                  return (
+                    <div style={{
+                      background: 'var(--surface-2)', border: '1px solid var(--border-light)',
+                      borderRadius: 8, padding: '10px 14px', fontSize: 13,
+                    }}>
+                      <div style={{ color: 'var(--text-muted)', marginBottom: 6, fontFamily: 'JetBrains Mono' }}>
+                        {label}
+                      </div>
+                      {payload.map((p) => (
+                        <div key={p.name} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 2 }}>
+                          <span style={{ color: p.color as string, fontSize: 12 }}>{p.name}</span>
+                          <span style={{ fontFamily: 'JetBrains Mono', fontWeight: 700, color: p.color as string }}>
+                            {fmtBRL(p.value as number)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )
                 }}
-                onMouseEnter={e => { if (subRevenue && subRevenue.payments_count > 0) (e.currentTarget as HTMLElement).style.color = 'var(--green)' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text)' }}
-              >
-                {subRevenue?.payments_count ?? '—'}
-              </div>
-            </button>
-          </div>
-          <div className="sub-revenue-item">
-            <div className="stat-label">Inadimplentes</div>
-            <button
-              onClick={() => subRevenue !== undefined && setShowOverdueModal(true)}
-              style={{
-                background: 'none', border: 'none', padding: 0,
-                cursor: subRevenue !== undefined ? 'pointer' : 'default',
-                display: 'block', textAlign: 'inherit',
-              }}
-            >
-              <div
-                className="mono sub-revenue-value"
-                style={{
-                  fontSize: 20, fontWeight: 700,
-                  color: subRevenue?.overdue_count ? 'var(--red)' : 'var(--text)',
-                  marginTop: 4,
-                  textDecoration: subRevenue !== undefined ? 'underline' : 'none',
-                  textDecorationStyle: 'dotted',
-                  textUnderlineOffset: 3,
-                  textDecorationColor: subRevenue?.overdue_count ? 'var(--red-border)' : 'var(--text-dim)',
-                  transition: 'opacity 0.15s',
-                }}
-                onMouseEnter={e => { if (subRevenue !== undefined) (e.currentTarget as HTMLElement).style.opacity = '0.75' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
-              >
-                {subRevenue?.overdue_count ?? '—'}
-              </div>
-            </button>
-          </div>
+                cursor={{ stroke: 'var(--border-light)', strokeWidth: 1 }}
+              />
+              <Legend
+                wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
+                formatter={(value) => <span style={{ color: 'var(--text-muted)' }}>{value}</span>}
+              />
+              <Line
+                type="monotone"
+                dataKey={String(currentYear)}
+                stroke="var(--amber)"
+                strokeWidth={2.5}
+                dot={{ r: 3, fill: 'var(--amber)', strokeWidth: 0 }}
+                activeDot={{ r: 5, fill: 'var(--amber)' }}
+              />
+              <Line
+                type="monotone"
+                dataKey={String(currentYear - 1)}
+                stroke="var(--blue)"
+                strokeWidth={2}
+                strokeDasharray="5 3"
+                dot={{ r: 3, fill: 'var(--blue)', strokeWidth: 0 }}
+                activeDot={{ r: 5, fill: 'var(--blue)' }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       </div>
 

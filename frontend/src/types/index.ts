@@ -176,6 +176,12 @@ export interface MonthPaymentDetail {
   notes: string | null
 }
 
+export interface MonthlyRevenueItem {
+  month: string
+  current_year: string
+  previous_year: string
+}
+
 export interface YardUpdate {
   occupied: number
   vehicles: ActiveEntry[]
