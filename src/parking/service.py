@@ -265,11 +265,22 @@ def calcular_valor(entry_at: datetime, exit_at: datetime, config: dict) -> Decim
         exit_at = exit_at.replace(tzinfo=timezone.utc)
 
     delta_minutes = (exit_at - entry_at).total_seconds() / 60
-    if delta_minutes <= float(config["tolerance_minutes"]):
+    tolerance = float(config["tolerance_minutes"])
+    half_hour_rate = Decimal(str(config["half_hour_rate"]))
+    hourly_rate = Decimal(str(config["hourly_rate"]))
+    additional_hour_rate = Decimal(str(config["additional_hour_rate"]))
+    daily_rate = Decimal(str(config["daily_rate"]))
+
+    if delta_minutes < tolerance:
         return Decimal("0.00")
 
-    horas = Decimal(str(delta_minutes / 60))
-    hourly_rate = Decimal(str(config["hourly_rate"]))
-    daily_rate = Decimal(str(config["daily_rate"]))
-    cobrado = (horas * hourly_rate).quantize(Decimal("0.01"))
-    return min(cobrado, daily_rate)
+    if delta_minutes < 30:
+        return min(half_hour_rate, daily_rate)
+
+    if delta_minutes < 60:
+        return min(hourly_rate, daily_rate)
+
+    # A cada hora completa após a primeira, adiciona additional_hour_rate integralmente
+    additional_complete_hours = int((delta_minutes - 60) / 60)
+    total = hourly_rate + additional_hour_rate * additional_complete_hours
+    return min(total, daily_rate)

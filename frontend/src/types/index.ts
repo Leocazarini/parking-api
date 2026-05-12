@@ -49,9 +49,11 @@ export interface ExitResponse {
 }
 
 export interface ParkingConfig {
-  hourly_rate: string
-  daily_rate: string
   tolerance_minutes: number
+  half_hour_rate: string
+  hourly_rate: string
+  additional_hour_rate: string
+  daily_rate: string
 }
 
 export interface Color {

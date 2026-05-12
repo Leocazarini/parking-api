@@ -70,17 +70,21 @@ class ExitResponse(BaseModel):
 
 
 class ConfigResponse(BaseModel):
-    hourly_rate: Decimal
-    daily_rate: Decimal
     tolerance_minutes: int
+    half_hour_rate: Decimal
+    hourly_rate: Decimal
+    additional_hour_rate: Decimal
+    daily_rate: Decimal
 
 
 class ConfigUpdate(BaseModel):
-    hourly_rate: Optional[Decimal] = None
-    daily_rate: Optional[Decimal] = None
     tolerance_minutes: Optional[int] = None
+    half_hour_rate: Optional[Decimal] = None
+    hourly_rate: Optional[Decimal] = None
+    additional_hour_rate: Optional[Decimal] = None
+    daily_rate: Optional[Decimal] = None
 
-    @field_validator("hourly_rate", "daily_rate", mode="before")
+    @field_validator("half_hour_rate", "hourly_rate", "additional_hour_rate", "daily_rate", mode="before")
     @classmethod
     def validate_rate(cls, v: object) -> object:
         if v is None:

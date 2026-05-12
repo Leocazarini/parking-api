@@ -6,9 +6,11 @@ parking_config = Table(
     "parking_config",
     metadata,
     Column("id", Integer, primary_key=True),
-    Column("hourly_rate", Numeric(10, 2), nullable=False, server_default="10.00"),
-    Column("daily_rate", Numeric(10, 2), nullable=False, server_default="50.00"),
     Column("tolerance_minutes", Integer, nullable=False, server_default="5"),
+    Column("half_hour_rate", Numeric(10, 2), nullable=False, server_default="5.00"),
+    Column("hourly_rate", Numeric(10, 2), nullable=False, server_default="10.00"),
+    Column("additional_hour_rate", Numeric(10, 2), nullable=False, server_default="5.00"),
+    Column("daily_rate", Numeric(10, 2), nullable=False, server_default="50.00"),
 )
 
 parking_entry = Table(
