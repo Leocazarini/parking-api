@@ -27,7 +27,6 @@ function fmtDate(d: Date) {
 }
 
 const today = new Date()
-const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
 const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
 
 function CustomTooltip({ active, payload, label }: {
@@ -317,7 +316,7 @@ function PaymentsModal({
 }
 
 export default function Financial() {
-  const [startDate, setStartDate] = useState(fmtDate(firstOfMonth))
+  const [startDate, setStartDate] = useState(fmtDate(today))
   const [endDate, setEndDate] = useState(fmtDate(today))
   const [month, setMonth] = useState(currentMonth)
   const [refDate, setRefDate] = useState(fmtDate(today))

@@ -48,8 +48,8 @@ export default function Login() {
           <div className="login-logo">
             <Car size={28} strokeWidth={2.5} />
           </div>
-          <div className="login-title">PARKSYS</div>
-          <div className="login-sub">Sistema de Gestão de Estacionamento</div>
+          <div className="login-title">CENTRO PARK</div>
+          <div className="login-sub">Powered by Parkwise</div>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)}>

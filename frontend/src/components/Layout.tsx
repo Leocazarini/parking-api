@@ -56,8 +56,8 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="sidebar-logo">
           <div className="sidebar-logo-mark"><Car size={20} /></div>
           <div>
-            <div className="sidebar-logo-text">PARKSYS</div>
-            <div className="sidebar-logo-sub">Gestão de Pátio</div>
+            <div className="sidebar-logo-text">CENTRO PARK</div>
+            <div className="sidebar-logo-sub">by Parkwise</div>
           </div>
         </div>
 
@@ -134,8 +134,8 @@ export function Layout({ children }: { children: ReactNode }) {
                 <Car size={15} />
               </div>
               <div>
-                <div className="sidebar-logo-text" style={{ fontSize: 17 }}>PARKSYS</div>
-                <div className="sidebar-logo-sub">Gestão de Pátio</div>
+                <div className="sidebar-logo-text" style={{ fontSize: 17 }}>CENTRO PARK</div>
+                <div className="sidebar-logo-sub">by Parkwise</div>
               </div>
               <button className="btn btn-ghost btn-icon mobile-menu-close" onClick={() => setMenuOpen(false)} aria-label="Fechar menu">
                 <X size={18} />
@@ -212,7 +212,7 @@ export function Layout({ children }: { children: ReactNode }) {
             </button>
             <div className="mobile-header-logo">
               <div className="mobile-header-logo-mark"><Car size={16} /></div>
-              PARKSYS
+              CENTRO PARK
             </div>
           </div>
           <div style={{ display: 'flex', gap: 4 }}>
