@@ -9,7 +9,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import type { Color, VehicleModel, EntryResponse } from '../types'
 import { formatTicket } from '../utils'
 
-const PLATE_MERCOSUL = /^[A-Z]{3}[0-9][A-F][0-9]{2}$/
+const PLATE_MERCOSUL = /^[A-Z]{3}[0-9][A-I][0-9]{2}$/
 const PLATE_OLD = /^[A-Z]{3}[0-9]{4}$/
 
 const COLOR_HEX: Record<string, string> = {
@@ -160,6 +160,7 @@ export default function Entry() {
     reset,
     setValue,
     watch,
+    trigger,
     formState: { errors },
   } = useForm<EntryForm>({ defaultValues: { plate: '', color_id: 0, model_id: undefined } })
 
@@ -287,9 +288,11 @@ export default function Entry() {
                     maxLength={8}
                     autoComplete="off"
                     autoCapitalize="characters"
-                    onChange={(e) =>
-                      field.onChange(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))
-                    }
+                    onChange={(e) => {
+                      const val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')
+                      field.onChange(val)
+                      if (errors.plate) trigger('plate')
+                    }}
                   />
                 )}
               />
