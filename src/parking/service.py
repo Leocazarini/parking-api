@@ -274,9 +274,15 @@ async def get_history(
     if plate:
         base = base.where(parking_entry.c.plate.ilike(f"%{plate}%"))
     if date_from:
-        base = base.where(parking_entry.c.entry_at >= date_from)
+        dt_from = datetime.fromisoformat(date_from)
+        if dt_from.tzinfo is None:
+            dt_from = dt_from.replace(tzinfo=timezone.utc)
+        base = base.where(parking_entry.c.entry_at >= dt_from)
     if date_to:
-        base = base.where(parking_entry.c.entry_at <= date_to)
+        dt_to = datetime.fromisoformat(date_to)
+        if dt_to.tzinfo is None:
+            dt_to = dt_to.replace(tzinfo=timezone.utc)
+        base = base.where(parking_entry.c.entry_at <= dt_to)
     if client_type and client_type in ("regular", "subscriber"):
         base = base.where(parking_entry.c.client_type == client_type)
 

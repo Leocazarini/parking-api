@@ -254,6 +254,12 @@ export default function History() {
         </div>
       </div>
 
+      {(filters.plate || filters.date_from || filters.date_to || filters.client_type) && (
+        <div className="hist-result-count">
+          {isLoading ? '…' : `${total} registro${total !== 1 ? 's' : ''} encontrado${total !== 1 ? 's' : ''}`}
+        </div>
+      )}
+
       {/* ── Content ── */}
       {isLoading ? (
         <div className="loading-center"><div className="spinner" /></div>
@@ -447,6 +453,11 @@ export default function History() {
         .hist-filter-actions {
           display: flex;
           gap: 8px;
+        }
+        .hist-result-count {
+          font-size: 13px;
+          color: var(--text-muted);
+          margin-bottom: 8px;
         }
 
         /* Tabela desktop */

@@ -161,7 +161,7 @@ export default function Settings() {
                 {errors.half_hour_rate && (
                   <span className="form-error"><AlertCircle size={12} />{errors.half_hour_rate.message}</span>
                 )}
-                <span className="form-hint">5 min até 29 min</span>
+                <span className="form-hint">até 29 min</span>
               </div>
 
               <div className="form-group">
