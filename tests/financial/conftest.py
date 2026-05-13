@@ -36,15 +36,15 @@ async def entries_dataset(db_engine):
             "amount_charged": "20.00",
             "payment_method": "dinheiro",
         },
-        # Hoje — subscriber ativo, gratuito, 30 min
+        # Hoje — subscriber ativo, sem cobrança adicional, 30 min
         {
             "plate": "FIN3A23",
             "color_id": 1,
             "client_type": "subscriber",
             "entry_at": _dt(today, 10),
             "exit_at": _dt(today, 10) + timedelta(minutes=30),
-            "amount_charged": "0.00",
-            "payment_method": "pix",
+            "amount_charged": None,
+            "payment_method": None,
         },
         # Ontem — regular, credito, 1 hora
         {

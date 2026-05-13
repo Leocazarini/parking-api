@@ -1,11 +1,20 @@
-import pytest
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+
+import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from src.parking.tables import parking_entry
 from src.parking.service import calcular_valor
+from src.parking.tables import parking_entry
+
+CONFIG = {
+    "tolerance_minutes": 5,
+    "half_hour_rate": "5.00",
+    "hourly_rate": "10.00",
+    "additional_hour_rate": "5.00",
+    "daily_rate": "50.00",
+}
 
 
 # --- unit tests for the calculation function ---
@@ -13,36 +22,31 @@ from src.parking.service import calcular_valor
 def test_calcular_valor_within_tolerance():
     entry_at = datetime(2026, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
     exit_at = datetime(2026, 1, 1, 10, 4, 0, tzinfo=timezone.utc)
-    config = {"tolerance_minutes": 5, "hourly_rate": "10.00", "daily_rate": "50.00"}
-    assert calcular_valor(entry_at, exit_at, config) == Decimal("0.00")
+    assert calcular_valor(entry_at, exit_at, CONFIG) == Decimal("0.00")
 
 
 def test_calcular_valor_exactly_at_tolerance():
     entry_at = datetime(2026, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
     exit_at = datetime(2026, 1, 1, 10, 5, 0, tzinfo=timezone.utc)
-    config = {"tolerance_minutes": 5, "hourly_rate": "10.00", "daily_rate": "50.00"}
-    assert calcular_valor(entry_at, exit_at, config) == Decimal("0.00")
+    assert calcular_valor(entry_at, exit_at, CONFIG) == Decimal("5.00")
 
 
 def test_calcular_valor_one_hour():
     entry_at = datetime(2026, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
     exit_at = datetime(2026, 1, 1, 11, 0, 0, tzinfo=timezone.utc)
-    config = {"tolerance_minutes": 5, "hourly_rate": "10.00", "daily_rate": "50.00"}
-    assert calcular_valor(entry_at, exit_at, config) == Decimal("10.00")
+    assert calcular_valor(entry_at, exit_at, CONFIG) == Decimal("10.00")
 
 
 def test_calcular_valor_capped_by_daily_rate():
     entry_at = datetime(2026, 1, 1, 8, 0, 0, tzinfo=timezone.utc)
     exit_at = datetime(2026, 1, 1, 20, 0, 0, tzinfo=timezone.utc)
-    config = {"tolerance_minutes": 5, "hourly_rate": "10.00", "daily_rate": "50.00"}
-    assert calcular_valor(entry_at, exit_at, config) == Decimal("50.00")
+    assert calcular_valor(entry_at, exit_at, CONFIG) == Decimal("50.00")
 
 
 def test_calcular_valor_naive_datetimes():
     entry_at = datetime(2026, 1, 1, 10, 0, 0)
     exit_at = datetime(2026, 1, 1, 11, 0, 0)
-    config = {"tolerance_minutes": 5, "hourly_rate": "10.00", "daily_rate": "50.00"}
-    assert calcular_valor(entry_at, exit_at, config) == Decimal("10.00")
+    assert calcular_valor(entry_at, exit_at, CONFIG) == Decimal("10.00")
 
 
 # --- integration tests via HTTP ---
@@ -76,6 +80,23 @@ async def test_exit_with_old_entry_charges_correctly(auth_client: AsyncClient, d
     )
     assert resp.status_code == 200
     assert Decimal(resp.json()["amount_charged"]) == Decimal("20.00")
+
+
+@pytest.mark.asyncio
+async def test_paid_exit_requires_payment_method(
+    auth_client: AsyncClient, db_engine: AsyncEngine
+):
+    entry_at = datetime.now(timezone.utc) - timedelta(hours=2)
+    async with db_engine.begin() as conn:
+        result = await conn.execute(
+            parking_entry.insert().values(
+                plate="PAY1A23", color_id=1, entry_at=entry_at, client_type="regular"
+            )
+        )
+        entry_id = result.inserted_primary_key[0]
+
+    resp = await auth_client.post("/patio/saida", json={"entry_id": entry_id})
+    assert resp.status_code == 422
 
 
 @pytest.mark.asyncio

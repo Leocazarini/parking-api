@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { ActiveEntry, EntryResponse, ExitResponse, ParkingConfig, HistoryResponse } from '../types'
+import type { ActiveEntry, EntryResponse, ExitResponse, ParkingConfig, HistoryResponse, PlateLookup } from '../types'
 
 export async function getActiveEntries(): Promise<ActiveEntry[]> {
   const { data } = await api.get<ActiveEntry[]>('/api/patio/ativos')
@@ -11,7 +11,7 @@ export async function registerEntry(placa: string, color_id: number, model_id?: 
   return data
 }
 
-export async function registerExit(entry_id: number, payment_method: string): Promise<ExitResponse> {
+export async function registerExit(entry_id: number, payment_method: string | null): Promise<ExitResponse> {
   const { data } = await api.post<ExitResponse>('/api/patio/saida', { entry_id, payment_method })
   return data
 }
@@ -38,4 +38,13 @@ export interface HistoryParams {
 export async function getHistory(params: HistoryParams = {}): Promise<HistoryResponse> {
   const { data } = await api.get<HistoryResponse>('/api/patio/historico', { params })
   return data
+}
+
+export async function lookupSubscriberByPlate(plate: string): Promise<PlateLookup | null> {
+  try {
+    const { data } = await api.get<PlateLookup>(`/api/subscribers/by-plate/${plate}`, { _silent: true } as object)
+    return data
+  } catch {
+    return null
+  }
 }

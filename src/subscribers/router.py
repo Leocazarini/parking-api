@@ -8,6 +8,7 @@ from src.subscribers.schemas import (
     OverdueJobResponse,
     PaymentCreate,
     PaymentResponse,
+    PlateLookupResponse,
     SubscriberBasic,
     SubscriberCreate,
     SubscriberDetail,
@@ -31,6 +32,19 @@ async def run_overdue_job(
     _: dict = Depends(require_admin),
 ):
     return await service.check_overdue(conn)
+
+
+@router.get("/by-plate/{plate}", response_model=PlateLookupResponse)
+async def lookup_by_plate(
+    plate: str,
+    conn: AsyncConnection = Depends(get_db),
+    _: dict = Depends(require_operator_or_admin),
+):
+    from fastapi import HTTPException
+    info = await service.lookup_by_plate(conn, plate.upper())
+    if not info:
+        raise HTTPException(status_code=404, detail="Placa não encontrada")
+    return info
 
 
 @router.get("/active", response_model=list[SubscriberBasic])

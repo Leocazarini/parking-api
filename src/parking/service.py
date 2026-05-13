@@ -9,6 +9,7 @@ from src.parking.exceptions import (
     ConfigNotFoundError,
     EntryNotFoundError,
     InvalidColorError,
+    PaymentMethodRequiredError,
     PlateAlreadyActiveError,
 )
 from src.parking.tables import config_audit_log, parking_config, parking_entry
@@ -69,9 +70,12 @@ async def get_active_entries(conn: AsyncConnection) -> list[dict]:
             vehicle_model.c.name.label("model"),
             parking_entry.c.client_type,
             parking_entry.c.entry_at,
+            subscriber_table.c.status.label("subscriber_status"),
         )
         .join(vehicle_color, parking_entry.c.color_id == vehicle_color.c.id)
         .outerjoin(vehicle_model, parking_entry.c.model_id == vehicle_model.c.id)
+        .outerjoin(subscriber_vehicle, parking_entry.c.plate == subscriber_vehicle.c.plate)
+        .outerjoin(subscriber_table, subscriber_vehicle.c.subscriber_id == subscriber_table.c.id)
         .where(parking_entry.c.exit_at.is_(None))
         .order_by(parking_entry.c.entry_at.desc())
     )
@@ -165,7 +169,7 @@ async def create_entry(
 
 
 async def create_exit(
-    conn: AsyncConnection, entry_id: int, payment_method: str
+    conn: AsyncConnection, entry_id: int, payment_method: str | None
 ) -> dict:
     entry_result = await conn.execute(
         select(parking_entry)
@@ -176,28 +180,35 @@ async def create_exit(
     if not entry:
         raise EntryNotFoundError(entry_id)
 
-    config_result = await conn.execute(
-        select(parking_config).where(parking_config.c.id == 1)
-    )
-    config = config_result.first()
-    if not config:
-        raise ConfigNotFoundError()
-
     exit_at = datetime.now(timezone.utc)
 
+    sub_info = None
     if entry.client_type == "subscriber":
         sub_info = await detect_by_plate(conn, entry.plate)
-        if sub_info and sub_info["status"] == "active":
-            amount_charged = Decimal("0.00")
-        else:
-            amount_charged = calcular_valor(entry.entry_at, exit_at, dict(config._mapping))
+
+    if sub_info and sub_info["status"] == "active":
+        amount_charged = None
+        payment_method = None
     else:
+        config_result = await conn.execute(
+            select(parking_config).where(parking_config.c.id == 1)
+        )
+        config = config_result.first()
+        if not config:
+            raise ConfigNotFoundError()
+
         amount_charged = calcular_valor(entry.entry_at, exit_at, dict(config._mapping))
+        if amount_charged > 0 and payment_method is None:
+            raise PaymentMethodRequiredError()
 
     await conn.execute(
         update(parking_entry)
         .where(parking_entry.c.id == entry_id)
-        .values(exit_at=exit_at, amount_charged=amount_charged, payment_method=payment_method)
+        .values(
+            exit_at=exit_at,
+            amount_charged=amount_charged,
+            payment_method=payment_method,
+        )
     )
 
     row = await conn.execute(
@@ -208,7 +219,11 @@ async def create_exit(
         if updated.get(field) and updated[field].tzinfo is None:
             updated[field] = updated[field].replace(tzinfo=timezone.utc)
 
-    entry_at_aware = entry.entry_at if entry.entry_at.tzinfo else entry.entry_at.replace(tzinfo=timezone.utc)
+    entry_at_aware = (
+        entry.entry_at
+        if entry.entry_at.tzinfo
+        else entry.entry_at.replace(tzinfo=timezone.utc)
+    )
     duration_minutes = int((exit_at - entry_at_aware).total_seconds() / 60)
     await sio.emit(
         "spot:exit",
@@ -216,7 +231,9 @@ async def create_exit(
             "entry_id": entry_id,
             "plate": entry.plate,
             "exit_at": exit_at.isoformat(),
-            "amount_charged": f"{amount_charged:.2f}",
+            "amount_charged": (
+                None if amount_charged is None else f"{amount_charged:.2f}"
+            ),
             "duration_minutes": duration_minutes,
         },
         room="yard",

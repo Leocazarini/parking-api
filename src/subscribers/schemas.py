@@ -289,3 +289,10 @@ class SubscriberDetail(SubscriberResponse):
 class OverdueJobResponse(BaseModel):
     checked: int
     marked_overdue: int
+
+
+class PlateLookupResponse(BaseModel):
+    name: str
+    status: str
+    color_id: Optional[int] = None
+    model_id: Optional[int] = None

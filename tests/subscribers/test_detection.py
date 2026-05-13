@@ -1,5 +1,8 @@
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
+
+from src.parking.tables import parking_entry
 
 
 @pytest.mark.asyncio
@@ -68,8 +71,8 @@ async def test_entry_unknown_plate_is_regular(auth_client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_exit_active_subscriber_charged_zero(
-    auth_client: AsyncClient, active_subscriber_with_vehicle: dict
+async def test_exit_active_subscriber_has_no_additional_charge(
+    auth_client: AsyncClient, db_engine, active_subscriber_with_vehicle: dict
 ):
     entry_resp = await auth_client.post(
         "/patio/entrada",
@@ -78,10 +81,21 @@ async def test_exit_active_subscriber_charged_zero(
     entry_id = entry_resp.json()["id"]
 
     exit_resp = await auth_client.post(
-        "/patio/saida", json={"entry_id": entry_id, "payment_method": "pix"}
+        "/patio/saida", json={"entry_id": entry_id}
     )
     assert exit_resp.status_code == 200
-    assert exit_resp.json()["amount_charged"] == "0.00"
+    assert exit_resp.json()["amount_charged"] is None
+    assert exit_resp.json()["payment_method"] is None
+
+    async with db_engine.begin() as conn:
+        stored = (
+            await conn.execute(
+                select(parking_entry.c.amount_charged, parking_entry.c.payment_method)
+                .where(parking_entry.c.id == entry_id)
+            )
+        ).one()
+    assert stored.amount_charged is None
+    assert stored.payment_method is None
 
 
 @pytest.mark.asyncio

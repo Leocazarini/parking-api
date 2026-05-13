@@ -53,7 +53,7 @@ async def test_revenue_totals_today(
     assert resp.status_code == 200
     data = resp.json()
 
-    # FIN1 (20) + FIN2 (20) + FIN3 (0) = 40; FIN5 sem saída não conta
+    # FIN1 (20) + FIN2 (20) + FIN3 (sem cobrança) = 40; FIN5 sem saída não conta
     assert Decimal(data["total"]) == Decimal("40.00")
     assert data["entries_count"] == 3
 
@@ -67,7 +67,7 @@ async def test_revenue_breakdown_by_payment_method(
         "/financial/revenue", params={"start_date": today, "end_date": today}
     )
     pm = resp.json()["by_payment_method"]
-    assert Decimal(pm["pix"]) == Decimal("20.00")   # FIN1 + FIN3
+    assert Decimal(pm["pix"]) == Decimal("20.00")   # FIN1
     assert Decimal(pm["dinheiro"]) == Decimal("20.00")  # FIN2
     assert Decimal(pm["credito"]) == Decimal("0")
     assert Decimal(pm["debito"]) == Decimal("0")
@@ -216,7 +216,7 @@ async def test_parking_summary_free_exits(
         "/financial/parking-summary",
         params={"start_date": today, "end_date": today},
     )
-    # FIN3: subscriber com amount_charged = 0
+    # FIN3: subscriber sem cobrança adicional
     assert resp.json()["free_exits"] == 1
 
 

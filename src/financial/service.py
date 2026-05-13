@@ -176,10 +176,9 @@ async def get_parking_summary(
         "regular_entries": sum(1 for r in rows if r.client_type == "regular"),
         "subscriber_entries": sum(1 for r in rows if r.client_type == "subscriber"),
         "free_exits": sum(
-            1 for r in rows
+            1 for r in completed
             if r.client_type == "subscriber"
-            and r.amount_charged is not None
-            and r.amount_charged == 0
+            and (r.amount_charged is None or r.amount_charged == 0)
         ),
         "average_stay_minutes": avg_stay,
         "regular_average_stay_minutes": regular_avg_stay,

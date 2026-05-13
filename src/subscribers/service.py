@@ -203,6 +203,24 @@ async def remove_payment(
     await _recheck_overdue_after_removal(conn, subscriber_id, deleted_month)
 
 
+async def lookup_by_plate(conn: AsyncConnection, plate: str) -> Optional[dict]:
+    result = await conn.execute(
+        select(
+            subscriber.c.name,
+            subscriber.c.status,
+            subscriber_vehicle.c.color_id,
+            subscriber_vehicle.c.model_id,
+        )
+        .join(subscriber, subscriber_vehicle.c.subscriber_id == subscriber.c.id)
+        .where(
+            subscriber_vehicle.c.plate == plate,
+            subscriber.c.is_active == True,  # noqa: E712
+        )
+    )
+    row = result.first()
+    return dict(row._mapping) if row else None
+
+
 async def detect_by_plate(conn: AsyncConnection, plate: str) -> Optional[dict]:
     result = await conn.execute(
         select(

@@ -31,3 +31,11 @@ class InvalidColorError(HTTPException):
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Cor com id {color_id} não encontrada",
         )
+
+
+class PaymentMethodRequiredError(HTTPException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Forma de pagamento obrigatória para saída com cobrança",
+        )

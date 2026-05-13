@@ -42,6 +42,10 @@ function formatBRL(value: number): string {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+function formatPaymentMethod(method: string | null): string {
+  return method ? method.charAt(0).toUpperCase() + method.slice(1) : 'Sem pagamento'
+}
+
 function durationStr(entryAt: string): string {
   const ms = Date.now() - parseApiDate(entryAt).getTime()
   return fmtDuration(ms / 60000)
@@ -85,7 +89,7 @@ export default function Exit() {
   })
 
   const mutation = useMutation({
-    mutationFn: ({ entry_id, method }: { entry_id: number; method: PaymentMethod }) =>
+    mutationFn: ({ entry_id, method }: { entry_id: number; method: PaymentMethod | null }) =>
       registerExit(entry_id, method),
     onSuccess: (data) => {
       setResult(data)
@@ -104,12 +108,18 @@ export default function Exit() {
   }, [vehicles, search])
 
   const charge = selected && config ? calcCharge(selected.entry_at, config) : null
-  const isFree = selected?.client_type === 'subscriber' || (charge !== null && charge === 0)
+  const isFree =
+    selected?.subscriber_status === 'active' || (charge !== null && charge === 0)
+  const resultIsFree =
+    result?.amount_charged === null || Number(result?.amount_charged) === 0
 
   const handleConfirm = () => {
     if (!selected) return
     if (!isFree && !payment) return
-    mutation.mutate({ entry_id: selected.id, method: payment ?? 'dinheiro' })
+    mutation.mutate({
+      entry_id: selected.id,
+      method: selected.subscriber_status === 'active' ? null : payment ?? 'dinheiro',
+    })
   }
 
   const handleNew = () => {
@@ -142,8 +152,10 @@ export default function Exit() {
 
             <div className="charge-display mb-16">
               <div className="charge-label">Total cobrado</div>
-              <div className={`charge-amount ${Number(result.amount_charged) === 0 ? 'free' : ''}`}>
-                {formatBRL(Number(result.amount_charged))}
+              <div className={`charge-amount ${resultIsFree ? 'free' : ''}`}>
+                {result.amount_charged === null
+                  ? 'SEM COBRANÇA'
+                  : formatBRL(Number(result.amount_charged))}
               </div>
             </div>
 
@@ -157,7 +169,7 @@ export default function Exit() {
               <div className="card" style={{ padding: '12px', textAlign: 'center' }}>
                 <div className="stat-label">Pagamento</div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', textTransform: 'capitalize' }}>
-                  {result.payment_method}
+                  {formatPaymentMethod(result.payment_method)}
                 </div>
               </div>
             </div>

@@ -53,10 +53,17 @@ function calcDuration(entry_at: string, exit_at: string) {
   return Math.round((parseApiDate(exit_at).getTime() - parseApiDate(entry_at).getTime()) / 60000)
 }
 
+function isNoCharge(entry: HistoryEntry) {
+  return (
+    (entry.client_type === 'subscriber' && entry.amount_charged === null) ||
+    (entry.amount_charged !== null && Number(entry.amount_charged) === 0)
+  )
+}
+
 // ─── Detail modal ────────────────────────────────────────────────────────────
 function EntryDetailModal({ entry, onClose }: { entry: HistoryEntry; onClose: () => void }) {
   const isSubscriber = entry.client_type === 'subscriber'
-  const isFree = entry.amount_charged !== null && Number(entry.amount_charged) === 0
+  const isFree = isNoCharge(entry)
   const durationMin = calcDuration(entry.entry_at, entry.exit_at)
   const PayIcon = entry.payment_method ? (paymentIcon[entry.payment_method] ?? Car) : null
 
@@ -119,7 +126,9 @@ function EntryDetailModal({ entry, onClose }: { entry: HistoryEntry; onClose: ()
               {paymentLabel[entry.payment_method] ?? entry.payment_method}
             </div>
           ) : (
-            <div style={{ color: 'var(--text-dim)', fontSize: 14 }}>—</div>
+            <div style={{ color: 'var(--text-dim)', fontSize: 14 }}>
+              {isSubscriber ? 'Sem pagamento' : '—'}
+            </div>
           )}
         </div>
       </div>
@@ -128,7 +137,7 @@ function EntryDetailModal({ entry, onClose }: { entry: HistoryEntry; onClose: ()
       <div className="charge-display">
         <div className="charge-label">Total cobrado</div>
         <div className={`charge-amount ${isFree ? 'free' : ''}`} style={{ fontSize: 36 }}>
-          {entry.amount_charged === null ? '—' : isFree ? 'ISENTO' : fmtCurrency(entry.amount_charged)}
+          {isFree ? 'SEM COBRANÇA' : fmtCurrency(entry.amount_charged)}
         </div>
       </div>
     </Modal>
@@ -275,7 +284,7 @@ export default function History() {
               <tbody>
                 {items.map((entry) => {
                   const isSubscriber = entry.client_type === 'subscriber'
-                  const isFree = entry.amount_charged !== null && Number(entry.amount_charged) === 0
+                  const isFree = isNoCharge(entry)
                   const durationMin = calcDuration(entry.entry_at, entry.exit_at)
                   const PayIcon = entry.payment_method ? (paymentIcon[entry.payment_method] ?? null) : null
 
@@ -313,10 +322,12 @@ export default function History() {
                         {fmtDuration(durationMin)}
                       </td>
                       <td>
-                        {entry.amount_charged === null ? (
+                        {isFree ? (
+                          <span style={{ color: 'var(--green)', fontWeight: 600 }}>
+                            {isSubscriber ? 'Sem cobrança' : 'Isento'}
+                          </span>
+                        ) : entry.amount_charged === null ? (
                           <span style={{ color: 'var(--text-dim)' }}>—</span>
-                        ) : isFree ? (
-                          <span style={{ color: 'var(--green)', fontWeight: 600 }}>Isento</span>
                         ) : (
                           <span style={{ fontWeight: 600 }}>{fmtCurrency(entry.amount_charged)}</span>
                         )}
@@ -341,7 +352,7 @@ export default function History() {
           {/* ── Mobile: cards ── */}
           <div className="hist-cards">
             {items.map((entry) => {
-              const isFree = entry.amount_charged !== null && Number(entry.amount_charged) === 0
+              const isFree = isNoCharge(entry)
 
               return (
                 <button
@@ -357,10 +368,8 @@ export default function History() {
                       </span>
                     </span>
                     <span className={`hist-card-amount ${isFree ? 'free' : ''}`}>
-                      {entry.amount_charged === null
-                        ? '—'
-                        : isFree
-                        ? 'Isento'
+                      {isFree
+                        ? (entry.client_type === 'subscriber' ? 'Sem cobrança' : 'Isento')
                         : fmtCurrency(entry.amount_charged)}
                     </span>
                   </div>

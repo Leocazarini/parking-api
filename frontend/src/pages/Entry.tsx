@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AlertCircle, CheckCircle, AlertTriangle, Car, ChevronRight, Search, Check } from 'lucide-react'
-import { registerEntry } from '../api/parking'
+import { registerEntry, lookupSubscriberByPlate } from '../api/parking'
 import { getColors, getModels } from '../api/catalog'
 import { useToast } from '../hooks/useToast'
 import { StatusBadge } from '../components/StatusBadge'
@@ -48,6 +48,7 @@ function SearchableList({
 
   useEffect(() => {
     if (!selected) setCollapsed(false)
+    else setCollapsed(true)
   }, [selected])
 
   const filtered = search.trim()
@@ -166,6 +167,21 @@ export default function Entry() {
   const selectedColor = watch('color_id', 0)
   const selectedModel = watch('model_id')
 
+  const isValidPlate = PLATE_MERCOSUL.test(plateValue) || PLATE_OLD.test(plateValue)
+
+  const { data: subscriberInfo } = useQuery({
+    queryKey: ['subscriber-by-plate', plateValue],
+    queryFn: () => lookupSubscriberByPlate(plateValue),
+    enabled: isValidPlate,
+    staleTime: 30_000,
+  })
+
+  useEffect(() => {
+    if (!subscriberInfo) return
+    if (subscriberInfo.color_id) setValue('color_id', subscriberInfo.color_id)
+    if (subscriberInfo.model_id) setValue('model_id', subscriberInfo.model_id)
+  }, [subscriberInfo, setValue])
+
   const mutation = useMutation({
     mutationFn: ({ plate, color_id, model_id }: EntryForm) =>
       registerEntry(plate, Number(color_id), model_id ? Number(model_id) : undefined),
@@ -279,11 +295,15 @@ export default function Entry() {
               />
               {errors.plate ? (
                 <span className="form-error"><AlertCircle size={12} />{errors.plate.message}</span>
+              ) : subscriberInfo ? (
+                <span className="form-hint" style={{ color: subscriberInfo.status === 'active' ? 'var(--green)' : 'var(--amber)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Car size={12} />
+                  Mensalista: <strong style={{ marginLeft: 2 }}>{subscriberInfo.name}</strong>
+                  {subscriberInfo.status !== 'active' && <StatusBadge status={subscriberInfo.status} />}
+                </span>
               ) : plateValue.length > 0 ? (
-                <span className="form-hint" style={{ color: (PLATE_MERCOSUL.test(plateValue) || PLATE_OLD.test(plateValue)) ? 'var(--green)' : 'var(--text-muted)' }}>
-                  {(PLATE_MERCOSUL.test(plateValue) || PLATE_OLD.test(plateValue))
-                    ? '✓ Placa válida'
-                    : 'Digite 7 caracteres: AAA0000 ou AAA0A00'}
+                <span className="form-hint" style={{ color: isValidPlate ? 'var(--green)' : 'var(--text-muted)' }}>
+                  {isValidPlate ? '✓ Placa válida' : 'Digite 7 caracteres: AAA0000 ou AAA0A00'}
                 </span>
               ) : null}
             </div>

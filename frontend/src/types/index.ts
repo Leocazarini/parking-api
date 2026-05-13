@@ -44,8 +44,15 @@ export interface ExitResponse {
   plate: string
   entry_at: string
   exit_at: string
-  amount_charged: string
-  payment_method: string
+  amount_charged: string | null
+  payment_method: string | null
+}
+
+export interface PlateLookup {
+  name: string
+  status: string
+  color_id: number | null
+  model_id: number | null
 }
 
 export interface ParkingConfig {

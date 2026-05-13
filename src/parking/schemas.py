@@ -33,7 +33,7 @@ class EntryCreate(BaseModel):
 
 class ExitCreate(BaseModel):
     entry_id: int
-    payment_method: PaymentMethod
+    payment_method: Optional[PaymentMethod] = None
 
 
 class ActiveEntryResponse(BaseModel):
@@ -43,6 +43,7 @@ class ActiveEntryResponse(BaseModel):
     model: Optional[str] = None
     client_type: str
     entry_at: datetime
+    subscriber_status: Optional[str] = None
 
 
 class EntryResponse(BaseModel):
@@ -65,8 +66,8 @@ class ExitResponse(BaseModel):
     plate: str
     entry_at: datetime
     exit_at: datetime
-    amount_charged: Decimal
-    payment_method: str
+    amount_charged: Optional[Decimal] = None
+    payment_method: Optional[str] = None
 
 
 class HistoryEntryItem(BaseModel):
