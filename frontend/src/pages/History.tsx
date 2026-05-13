@@ -358,7 +358,10 @@ export default function History() {
           {/* ── Mobile: cards ── */}
           <div className="hist-cards">
             {items.map((entry) => {
+              const isSubscriber = entry.client_type === 'subscriber'
               const isFree = isNoCharge(entry)
+              const durationMin = calcDuration(entry.entry_at, entry.exit_at)
+              const PayIcon = entry.payment_method ? (paymentIcon[entry.payment_method] ?? null) : null
 
               return (
                 <button
@@ -366,30 +369,54 @@ export default function History() {
                   className={`hist-card ${entry.client_type}`}
                   onClick={() => setSelected(entry)}
                 >
+                  {/* Linha 1: placa + valor */}
                   <div className="hist-card-top">
                     <span className="hist-card-plate">
                       {entry.plate}
-                      <span className="mono" style={{ fontSize: 10, color: 'var(--text-dim)', display: 'block', fontWeight: 400, letterSpacing: '0.06em' }}>
+                      <span className="mono" style={{ fontSize: 10, color: 'var(--text-dim)', display: 'block', fontWeight: 400, letterSpacing: '0.06em', marginTop: 1 }}>
                         {formatTicket(entry.id)}
                       </span>
                     </span>
                     <span className={`hist-card-amount ${isFree ? 'free' : ''}`}>
                       {isFree
-                        ? (entry.client_type === 'subscriber' ? 'Sem cobrança' : 'Isento')
+                        ? (isSubscriber ? 'Sem cobrança' : 'Isento')
                         : fmtCurrency(entry.amount_charged)}
                     </span>
                   </div>
-                  <div className="hist-card-bottom">
-                    <span className="hist-card-exit">
-                      <Calendar size={11} />
+
+                  {/* Linha 2: entrada → saída */}
+                  <div className="hist-card-dates">
+                    <span className="hist-card-date-item">
+                      <Calendar size={10} />
+                      <span className="hist-card-date-label">Ent.</span>
+                      {fmtDate(entry.entry_at)} · {fmtTime(entry.entry_at)}
+                    </span>
+                    <span className="hist-card-date-sep">→</span>
+                    <span className="hist-card-date-item">
+                      <span className="hist-card-date-label">Saída</span>
                       {fmtDate(entry.exit_at)} · {fmtTime(entry.exit_at)}
                     </span>
+                  </div>
+
+                  {/* Linha 3: veículo + permanência + tipo + pagamento */}
+                  <div className="hist-card-bottom">
                     <span className="hist-card-vehicle">
-                      <span
-                        className="color-dot"
-                        style={{ width: 8, height: 8, background: colorHex(entry.color), flexShrink: 0 }}
-                      />
+                      <span className="color-dot" style={{ width: 8, height: 8, background: colorHex(entry.color), flexShrink: 0 }} />
                       {entry.model ?? entry.color}
+                    </span>
+                    <span className="hist-card-meta">
+                      <span className="mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                        {fmtDuration(durationMin)}
+                      </span>
+                      <span className={`badge ${isSubscriber ? 'badge-subscriber' : 'badge-regular'}`}>
+                        {isSubscriber ? 'Mensalista' : 'Avulso'}
+                      </span>
+                      {entry.payment_method && (
+                        <span className="hist-card-pay">
+                          {PayIcon && <PayIcon size={11} />}
+                          {paymentLabel[entry.payment_method]}
+                        </span>
+                      )}
                     </span>
                   </div>
                 </button>
@@ -527,27 +554,61 @@ export default function History() {
         }
         .hist-card-amount.free { color: var(--green); }
 
+        .hist-card-dates {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+        .hist-card-date-item {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 12px;
+          color: var(--text-muted);
+        }
+        .hist-card-date-item svg { color: var(--text-dim); flex-shrink: 0; }
+        .hist-card-date-label {
+          font-size: 10px;
+          color: var(--text-dim);
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+        .hist-card-date-sep {
+          font-size: 11px;
+          color: var(--text-dim);
+          flex-shrink: 0;
+        }
+
         .hist-card-bottom {
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 8px;
+          flex-wrap: wrap;
         }
-        .hist-card-exit {
-          display: flex;
-          align-items: center;
-          gap: 5px;
-          font-size: 12px;
-          color: var(--text-muted);
-        }
-        .hist-card-exit svg { color: var(--text-dim); flex-shrink: 0; }
         .hist-card-vehicle {
           display: flex;
           align-items: center;
           gap: 6px;
           font-size: 12px;
           color: var(--text-muted);
+          min-width: 0;
+        }
+        .hist-card-meta {
+          display: flex;
+          align-items: center;
+          gap: 8px;
           flex-shrink: 0;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+        .hist-card-pay {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 11px;
+          color: var(--text-muted);
         }
 
         /* Paginação */
@@ -564,19 +625,25 @@ export default function History() {
           color: var(--text-muted);
         }
 
-        /* ── Mobile overrides ── */
-        @media (max-width: 768px) {
+        /* ── Tablet + Mobile overrides ── */
+        @media (max-width: 1024px) {
           .hist-filter-grid {
-            grid-template-columns: 1fr;
+            grid-template-columns: 1fr 1fr;
             gap: 8px;
             margin-bottom: 10px;
           }
-          .hist-filter-actions { flex-direction: column; }
-          .hist-filter-actions .btn { width: 100%; justify-content: center; }
           .hist-table-wrap { display: none; }
           .hist-cards { display: flex; }
           .hist-pagination { justify-content: center; }
           .hist-pagination-info { display: none; }
+        }
+
+        @media (max-width: 540px) {
+          .hist-filter-grid {
+            grid-template-columns: 1fr;
+          }
+          .hist-filter-actions { flex-direction: column; }
+          .hist-filter-actions .btn { width: 100%; justify-content: center; }
         }
       `}</style>
     </div>
