@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { getHistory } from '../api/parking'
 import { Modal } from '../components/Modal'
-import { fmtDuration, parseApiDate, formatTicket } from '../utils'
+import { fmtDuration, parseApiDate, formatTicket, blurDateInput } from '../utils'
 import type { HistoryParams } from '../api/parking'
 import type { HistoryEntry } from '../types'
 
@@ -222,12 +222,12 @@ export default function History() {
 
           <div className="form-group" style={{ margin: 0 }}>
             <label className="form-label">Data inicial</label>
-            <input className="form-input" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+            <input className="form-input" type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); blurDateInput(e.target as HTMLInputElement) }} onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker() } catch {} }} />
           </div>
 
           <div className="form-group" style={{ margin: 0 }}>
             <label className="form-label">Data final</label>
-            <input className="form-input" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+            <input className="form-input" type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); blurDateInput(e.target as HTMLInputElement) }} onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker() } catch {} }} />
           </div>
 
           <div className="form-group" style={{ margin: 0 }}>

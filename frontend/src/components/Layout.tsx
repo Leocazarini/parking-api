@@ -7,6 +7,7 @@ import {
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../hooks/useToast'
 import { useKeyboardScroll } from '../hooks/useKeyboardScroll'
+import { blurDateInput } from '../utils'
 import { ToastContainer } from './Toast'
 import type { ReactNode } from 'react'
 
@@ -38,6 +39,33 @@ export function Layout({ children }: { children: ReactNode }) {
   useKeyboardScroll()
 
   useEffect(() => { setMenuOpen(false) }, [location.pathname])
+
+  useEffect(() => {
+    const blurFocusedDateInput = () => {
+      const active = document.activeElement
+      if (
+        active instanceof HTMLInputElement &&
+        (active.type === 'date' || active.type === 'month' ||
+         active.type === 'datetime-local' || active.type === 'time' ||
+         active.type === 'week')
+      ) {
+        // disabled trick: força blur garantido por spec HTML e impede re-focus
+        blurDateInput(active)
+      }
+    }
+    // touchstart cobre o caso onde o usuário toca em qualquer área que não seja
+    // o input (intenção de scroll inicia antes do touchmove)
+    document.addEventListener('touchstart', blurFocusedDateInput, { passive: true })
+    // touchmove dispara durante scroll confirmado (não tap)
+    document.addEventListener('touchmove', blurFocusedDateInput, { passive: true })
+    // scroll no window cobre iOS Safari onde o scroll é no documento
+    window.addEventListener('scroll', blurFocusedDateInput, { passive: true })
+    return () => {
+      document.removeEventListener('touchstart', blurFocusedDateInput)
+      document.removeEventListener('touchmove', blurFocusedDateInput)
+      window.removeEventListener('scroll', blurFocusedDateInput)
+    }
+  }, [])
 
   const handleLogout = async () => {
     await logout()

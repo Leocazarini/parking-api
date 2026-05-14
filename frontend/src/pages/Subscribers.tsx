@@ -16,6 +16,7 @@ import { Modal } from '../components/Modal'
 import { StatusBadge } from '../components/StatusBadge'
 import { useToast } from '../hooks/useToast'
 import type { Subscriber, SubscriberDetail, Color, VehicleModel } from '../types'
+import { blurDateInput } from '../utils'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -898,7 +899,9 @@ function DetailPanel({
             <div className="form-group">
               <label className="form-label">Mês referência *</label>
               <input type="month" className={`form-input ${errorsP.reference_month ? 'error' : ''}`}
-                {...regP('reference_month', { required: 'Obrigatório' })} />
+                onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker() } catch {} }}
+                {...regP('reference_month', { required: 'Obrigatório' })}
+                onChange={(e) => { regP('reference_month').onChange(e); blurDateInput(e.target as HTMLInputElement) }} />
               {errorsP.reference_month && <span className="form-error"><AlertCircle size={12} />{errorsP.reference_month.message}</span>}
             </div>
           </div>
@@ -907,7 +910,9 @@ function DetailPanel({
               <label className="form-label">Data pagamento *</label>
               <input type="date" className={`form-input ${errorsP.payment_date ? 'error' : ''}`}
                 defaultValue={new Date().toISOString().split('T')[0]}
-                {...regP('payment_date', { required: 'Obrigatório' })} />
+                onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker() } catch {} }}
+                {...regP('payment_date', { required: 'Obrigatório' })}
+                onChange={(e) => { regP('payment_date').onChange(e); blurDateInput(e.target as HTMLInputElement) }} />
               {errorsP.payment_date && <span className="form-error"><AlertCircle size={12} />{errorsP.payment_date.message}</span>}
             </div>
             <div className="form-group">

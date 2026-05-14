@@ -22,3 +22,35 @@ export function parseApiDate(s: string): Date {
 export function formatTicket(id: number): string {
   return `#${String(id).padStart(5, '0')}`
 }
+
+/**
+ * Força o blur de um input de data no mobile.
+ *
+ * Problema: no iOS Safari, após fechar o picker nativo de data, o input
+ * permanece "focado" mesmo que `e.target.blur()` seja chamado — o browser
+ * re-foca o input internamente, e ao rolar a página o navegador tenta manter
+ * o input focado visível ("scroll into view"), causando o efeito de "snap back".
+ *
+ * Solução: setar `disabled = true` em um input focado FORÇA o browser a desfocar
+ * por especificação HTML, e impede que o input seja re-focado enquanto disabled.
+ * Restauramos em requestAnimationFrame (1 frame ~16ms) — imperceptível.
+ *
+ * Combinamos com tentativas adicionais com setTimeout para cobrir o caso onde
+ * o iOS tenta re-focar após o requestAnimationFrame.
+ */
+export function blurDateInput(el: HTMLInputElement): void {
+  el.blur()
+  // Truque do disabled — força blur garantido por spec HTML
+  el.disabled = true
+  requestAnimationFrame(() => {
+    el.disabled = false
+  })
+  // Safety net: tentativas adicionais caso iOS Safari tente re-focar
+  for (const delay of [50, 150, 350]) {
+    setTimeout(() => {
+      if (document.activeElement === el) {
+        el.blur()
+      }
+    }, delay)
+  }
+}

@@ -6,6 +6,7 @@ import { getActiveSubscribers, registerSubscriberPayment } from '../api/subscrib
 import { StatusBadge } from '../components/StatusBadge'
 import { useToast } from '../hooks/useToast'
 import type { Subscriber } from '../types'
+import { blurDateInput } from '../utils'
 
 function fmtCurrency(digits: string): string {
   const num = parseInt(digits || '0', 10)
@@ -216,7 +217,9 @@ export default function SubscriberPayment() {
                 <input
                   type="month"
                   className={`form-input ${errors.reference_month ? 'error' : ''}`}
+                  onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker() } catch {} }}
                   {...register('reference_month', { required: 'Obrigatório' })}
+                  onChange={(e) => { register('reference_month').onChange(e); blurDateInput(e.target as HTMLInputElement) }}
                 />
                 {errors.reference_month && (
                   <span className="form-error"><AlertCircle size={12} />{errors.reference_month.message}</span>
@@ -227,7 +230,9 @@ export default function SubscriberPayment() {
                 <input
                   type="date"
                   className={`form-input ${errors.payment_date ? 'error' : ''}`}
+                  onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker() } catch {} }}
                   {...register('payment_date', { required: 'Obrigatório' })}
+                  onChange={(e) => { register('payment_date').onChange(e); blurDateInput(e.target as HTMLInputElement) }}
                 />
                 {errors.payment_date && (
                   <span className="form-error"><AlertCircle size={12} />{errors.payment_date.message}</span>

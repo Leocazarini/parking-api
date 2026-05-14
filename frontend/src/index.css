@@ -616,6 +616,25 @@ h1, h2, h3, h4, .heading {
 
 .form-input::placeholder { color: var(--text-dim); }
 
+input[type="date"].form-input,
+input[type="month"].form-input { cursor: pointer; }
+
+/* Truque do disabled para forçar blur no mobile:
+   quando o input é momentaneamente disabled para destruir o foco (iOS Safari),
+   não exibe o estilo padrão de disabled — mantém visual normal. */
+input[type="date"]:disabled,
+input[type="month"]:disabled,
+input[type="datetime-local"]:disabled,
+input[type="time"]:disabled,
+input[type="week"]:disabled {
+  opacity: 1 !important;
+  color: inherit !important;
+  background: var(--surface-2) !important;
+  border-color: var(--border-light) !important;
+  cursor: pointer !important;
+  -webkit-text-fill-color: inherit !important;
+}
+
 .plate-input {
   font-family: 'JetBrains Mono', monospace;
   font-size: 22px;
@@ -1761,23 +1780,11 @@ tbody tr:hover td { background: var(--surface-hover); }
 /* ── Financial date filter grid ── */
 .filter-date-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 12px;
 }
 
-/* Tablet: sidebar presente (769px+) mas espaço insuficiente para 4 colunas */
-@media (min-width: 769px) and (max-width: 1100px) {
-  .filter-date-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px 10px;
-  }
-}
-
 @media (max-width: 768px) {
-  .filter-date-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px 10px;
-  }
   .filter-date-grid .form-label { font-size: 11px; }
   .filter-date-grid .form-input { padding: 5px 8px; font-size: 12px; }
 }

@@ -13,7 +13,7 @@ import type {
   RevenueResponse, DailyRevenueItem, ParkingSummary, SubscriberRevenue,
   HourlyRevenueItem, OverdueSubscriberItem, MonthPaymentDetail, MonthlyRevenueItem,
 } from '../types'
-import { fmtDuration } from '../utils'
+import { fmtDuration, blurDateInput } from '../utils'
 
 function fmtBRL(v: string | number) {
   return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -324,6 +324,7 @@ export default function Financial() {
   const [refDate, setRefDate] = useState(fmtDate(today))
   const [showOverdueModal, setShowOverdueModal] = useState(false)
   const [showPaymentsModal, setShowPaymentsModal] = useState(false)
+  const [selectedYear, setSelectedYear] = useState(today.getFullYear())
 
   const currentYear = today.getFullYear()
 
@@ -353,8 +354,8 @@ export default function Financial() {
   })
 
   const { data: yearly = [] } = useQuery<MonthlyRevenueItem[]>({
-    queryKey: ['yearly-revenue', currentYear],
-    queryFn: () => getYearlyRevenue(currentYear),
+    queryKey: ['yearly-revenue', selectedYear],
+    queryFn: () => getYearlyRevenue(selectedYear),
   })
 
   const chartData = daily.map((d) => ({
@@ -365,8 +366,8 @@ export default function Financial() {
 
   const yearlyChartData = yearly.map((item, i) => ({
     month: MONTH_LABELS[i] ?? item.month,
-    [String(currentYear)]: Number(item.current_year),
-    [String(currentYear - 1)]: Number(item.previous_year),
+    [String(selectedYear)]: Number(item.current_year),
+    [String(selectedYear - 1)]: Number(item.previous_year),
   }))
 
   return (
@@ -383,19 +384,11 @@ export default function Financial() {
         <div className="filter-date-grid">
           <div className="form-group" style={{ margin: 0 }}>
             <label className="form-label">Data inicial</label>
-            <input type="date" className="form-input" style={{ cursor: 'pointer' }} value={startDate} onChange={(e) => setStartDate(e.target.value)} onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker() } catch {} }} />
+            <input type="date" className="form-input" style={{ cursor: 'pointer' }} value={startDate} onChange={(e) => { setStartDate(e.target.value); blurDateInput(e.target as HTMLInputElement) }} onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker() } catch {} }} />
           </div>
           <div className="form-group" style={{ margin: 0 }}>
             <label className="form-label">Data final</label>
-            <input type="date" className="form-input" style={{ cursor: 'pointer' }} value={endDate} onChange={(e) => setEndDate(e.target.value)} onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker() } catch {} }} />
-          </div>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label className="form-label">Mês (gráfico diário)</label>
-            <input type="month" className="form-input" style={{ cursor: 'pointer' }} value={month} onChange={(e) => setMonth(e.target.value)} onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker() } catch {} }} />
-          </div>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label className="form-label">Dia (gráfico horário)</label>
-            <input type="date" className="form-input" style={{ cursor: 'pointer' }} value={refDate} onChange={(e) => setRefDate(e.target.value)} onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker() } catch {} }} />
+            <input type="date" className="form-input" style={{ cursor: 'pointer' }} value={endDate} onChange={(e) => { setEndDate(e.target.value); blurDateInput(e.target as HTMLInputElement) }} onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker() } catch {} }} />
           </div>
         </div>
       </div>
@@ -536,9 +529,21 @@ export default function Financial() {
 
       {/* Daily chart */}
       <div className="card mb-16">
-        <div className="card-header">
-          <div className="card-title">Receita Diária — {new Date(month + '-01T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>R$</div>
+        <div className="card-header" style={{ gap: 12 }}>
+          <input
+            type="month"
+            className="form-input"
+            value={month}
+            onChange={(e) => { setMonth(e.target.value); blurDateInput(e.target as HTMLInputElement) }}
+            onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker() } catch {} }}
+            style={{ cursor: 'pointer', width: 'auto', flexShrink: 0, padding: '6px 10px', fontSize: 13 }}
+          />
+          <div style={{ minWidth: 0, textAlign: 'right' }}>
+            <div className="card-title">Receita Diária</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+              {new Date(month + '-01T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+            </div>
+          </div>
         </div>
         {chartData.length === 0 ? (
           <div className="empty-state" style={{ padding: '24px' }}>
@@ -580,11 +585,19 @@ export default function Financial() {
 
       {/* Hourly chart */}
       <div className="card mb-16">
-        <div className="card-header">
-          <div>
+        <div className="card-header" style={{ gap: 12 }}>
+          <input
+            type="date"
+            className="form-input"
+            value={refDate}
+            onChange={(e) => { setRefDate(e.target.value); blurDateInput(e.target as HTMLInputElement) }}
+            onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker() } catch {} }}
+            style={{ cursor: 'pointer', width: 'auto', flexShrink: 0, padding: '6px 10px', fontSize: 13 }}
+          />
+          <div style={{ minWidth: 0, textAlign: 'right' }}>
             <div className="card-title">Receita por Hora</div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-              Comparativo: {new Date(refDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+              {new Date(refDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
               {' vs '}
               {new Date(new Date(refDate + 'T12:00:00').getTime() - 86400000).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
             </div>
@@ -668,11 +681,23 @@ export default function Financial() {
 
       {/* Yearly comparison chart */}
       <div className="card">
-        <div className="card-header">
-          <div>
+        <div className="card-header" style={{ gap: 12 }}>
+          <div className="select-wrapper" style={{ flexShrink: 0, minWidth: 86 }}>
+            <select
+              className="form-select"
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              style={{ padding: '6px 28px 6px 10px', fontSize: 13, cursor: 'pointer' }}
+            >
+              {Array.from({ length: 5 }, (_, i) => currentYear - i).map(yr => (
+                <option key={yr} value={yr}>{yr}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ minWidth: 0, textAlign: 'right' }}>
             <div className="card-title">Receita Anual — Comparativo Mensal</div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-              {currentYear} vs {currentYear - 1}
+              {selectedYear} vs {selectedYear - 1}
             </div>
           </div>
         </div>
@@ -723,7 +748,7 @@ export default function Financial() {
               />
               <Line
                 type="monotone"
-                dataKey={String(currentYear)}
+                dataKey={String(selectedYear)}
                 stroke="var(--amber)"
                 strokeWidth={2.5}
                 dot={{ r: 3, fill: 'var(--amber)', strokeWidth: 0 }}
@@ -731,7 +756,7 @@ export default function Financial() {
               />
               <Line
                 type="monotone"
-                dataKey={String(currentYear - 1)}
+                dataKey={String(selectedYear - 1)}
                 stroke="var(--blue)"
                 strokeWidth={2}
                 strokeDasharray="5 3"
