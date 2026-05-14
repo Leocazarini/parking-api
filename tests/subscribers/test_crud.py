@@ -40,7 +40,7 @@ async def test_create_subscriber_duplicate_cpf(auth_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_create_subscriber_invalid_due_day(auth_client: AsyncClient):
-    resp = await auth_client.post("/subscribers", json={**SUBSCRIBER_PAYLOAD, "due_day": 29})
+    resp = await auth_client.post("/subscribers", json={**SUBSCRIBER_PAYLOAD, "due_day": 32})
     assert resp.status_code == 422
 
 
@@ -162,3 +162,84 @@ async def test_remove_vehicle(
         f"/subscribers/{active_subscriber_with_vehicle['id']}/vehicles"
     )
     assert vehicles.json() == []
+
+
+@pytest.mark.asyncio
+async def test_remove_vehicle_not_found(auth_client: AsyncClient, active_subscriber: dict):
+    resp = await auth_client.delete(
+        f"/subscribers/{active_subscriber['id']}/vehicles/99999"
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_list_active_subscribers(auth_client: AsyncClient, active_subscriber: dict):
+    resp = await auth_client.get("/subscribers/active")
+    assert resp.status_code == 200
+    ids = [s["id"] for s in resp.json()]
+    assert active_subscriber["id"] in ids
+
+
+@pytest.mark.asyncio
+async def test_list_active_subscribers_excludes_inactive(
+    auth_client: AsyncClient, active_subscriber: dict
+):
+    await auth_client.delete(f"/subscribers/{active_subscriber['id']}")
+    resp = await auth_client.get("/subscribers/active")
+    ids = [s["id"] for s in resp.json()]
+    assert active_subscriber["id"] not in ids
+
+
+@pytest.mark.asyncio
+async def test_lookup_by_plate_found(
+    auth_client: AsyncClient, active_subscriber_with_vehicle: dict
+):
+    plate = active_subscriber_with_vehicle["plate"]
+    resp = await auth_client.get(f"/subscribers/by-plate/{plate}")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["name"] == active_subscriber_with_vehicle["name"]
+    assert data["status"] == "active"
+
+
+@pytest.mark.asyncio
+async def test_lookup_by_plate_not_found(auth_client: AsyncClient):
+    resp = await auth_client.get("/subscribers/by-plate/XXX9Z99")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_remove_payment(auth_client: AsyncClient, active_subscriber: dict):
+    from datetime import date
+
+    today = date.today()
+    current_month = date(today.year, today.month, 1)
+
+    payment_resp = await auth_client.post(
+        f"/subscribers/{active_subscriber['id']}/payments",
+        json={
+            "amount": "150.00",
+            "reference_month": current_month.isoformat(),
+            "payment_date": today.isoformat(),
+            "payment_method": "pix",
+        },
+    )
+    assert payment_resp.status_code == 201
+    payment_id = payment_resp.json()["id"]
+
+    resp = await auth_client.delete(
+        f"/subscribers/{active_subscriber['id']}/payments/{payment_id}"
+    )
+    assert resp.status_code == 204
+
+    payments = await auth_client.get(f"/subscribers/{active_subscriber['id']}/payments")
+    ids = [p["id"] for p in payments.json()]
+    assert payment_id not in ids
+
+
+@pytest.mark.asyncio
+async def test_remove_payment_not_found(auth_client: AsyncClient, active_subscriber: dict):
+    resp = await auth_client.delete(
+        f"/subscribers/{active_subscriber['id']}/payments/99999"
+    )
+    assert resp.status_code == 404

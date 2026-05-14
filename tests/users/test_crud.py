@@ -120,3 +120,35 @@ async def test_get_me_still_works(auth_client: AsyncClient, admin_user: dict):
     resp = await auth_client.get("/users/me")
     assert resp.status_code == 200
     assert resp.json()["id"] == admin_user["id"]
+
+
+@pytest.mark.asyncio
+async def test_create_user_invalid_username(auth_client: AsyncClient):
+    resp = await auth_client.post("/users", json={**NEW_USER, "username": "ab"})
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_create_user_invalid_email(auth_client: AsyncClient):
+    resp = await auth_client.post("/users", json={**NEW_USER, "email": "notanemail"})
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_create_user_password_too_short(auth_client: AsyncClient):
+    resp = await auth_client.post("/users", json={**NEW_USER, "password": "1234"})
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_create_user_password_too_long(auth_client: AsyncClient):
+    resp = await auth_client.post("/users", json={**NEW_USER, "password": "A" * 129})
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_update_user_invalid_role(auth_client: AsyncClient):
+    create = await auth_client.post("/users", json=NEW_USER)
+    user_id = create.json()["id"]
+    resp = await auth_client.put(f"/users/{user_id}", json={"role": "superadmin"})
+    assert resp.status_code == 422

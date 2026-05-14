@@ -60,7 +60,7 @@ async def test_delete_color_not_in_use(auth_client: AsyncClient):
 async def test_delete_color_in_use_returns_409(auth_client: AsyncClient):
     create = await auth_client.post("/catalog/colors", json={"name": "Em Uso"})
     color_id = create.json()["id"]
-    await auth_client.post("/patio/entrada", json={"placa": "CLR9Z99", "color_id": color_id})
+    await auth_client.post("/patio/entrada", json={"placa": "CLR1A23", "color_id": color_id})
 
     resp = await auth_client.delete(f"/catalog/colors/{color_id}")
     assert resp.status_code == 409
@@ -128,7 +128,7 @@ async def test_delete_model_in_use_returns_409(auth_client: AsyncClient):
     )
     await auth_client.post(
         f"/subscribers/{sub.json()['id']}/vehicles",
-        json={"plate": "MDL9Z99", "model_id": model_id},
+        json={"plate": "MDL1A23", "model_id": model_id},
     )
 
     resp = await auth_client.delete(f"/catalog/models/{model_id}")

@@ -243,8 +243,8 @@ async def test_parking_summary_peak_hour(
         params={"start_date": today, "end_date": today},
     )
     data = resp.json()
-    # FIN1 h=8, FIN2 h=10, FIN3 h=10, FIN5 h=14 → peak = 10
-    assert data["peak_hour"] == 10
+    # FIN1: 8h UTC→5h BRT, FIN2: 10h UTC→7h BRT, FIN3: 10h UTC→7h BRT, FIN5: 14h UTC→11h BRT → peak = 7
+    assert data["peak_hour"] == 7
 
 
 @pytest.mark.asyncio
@@ -296,4 +296,210 @@ async def test_subscriber_revenue_requires_admin(operator_client: AsyncClient):
     resp = await operator_client.get(
         "/financial/subscribers/revenue", params={"month": "2026-04"}
     )
+    assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# GET /financial/revenue — com pagamentos de mensalistas
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_revenue_includes_subscriber_payments(
+    auth_client: AsyncClient,
+    entries_dataset: dict,
+    subscriber_payments_dataset: dict,
+):
+    today = entries_dataset["today"].isoformat()
+    resp = await auth_client.get(
+        "/financial/revenue",
+        params={"start_date": today, "end_date": today},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    # FIN1 20.00 + FIN2 20.00 = 40.00 (estacionamento)
+    # 150.00 + 150.00 = 300.00 (mensalistas)
+    assert Decimal(data["total"]) == Decimal("340.00")
+    assert data["subscriber_payments_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_daily_revenue_includes_subscriber_payments(
+    auth_client: AsyncClient,
+    entries_dataset: dict,
+    subscriber_payments_dataset: dict,
+):
+    ds = subscriber_payments_dataset
+    month_str = ds["current_month"].strftime("%Y-%m")
+    resp = await auth_client.get("/financial/revenue/daily", params={"month": month_str})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) >= 1
+    today = entries_dataset["today"]
+    today_row = next((r for r in data if r["date"] == today.isoformat()), None)
+    assert today_row is not None
+    # entradas + pagamentos de mensalistas
+    assert Decimal(today_row["total"]) > Decimal("0")
+
+
+# ---------------------------------------------------------------------------
+# GET /financial/parking-summary — data range inválido
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_parking_summary_invalid_date_range(auth_client: AsyncClient):
+    resp = await auth_client.get(
+        "/financial/parking-summary",
+        params={"start_date": "2099-12-31", "end_date": "2099-01-01"},
+    )
+    assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# GET /financial/subscribers/overdue-list
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_overdue_subscribers_list(
+    auth_client: AsyncClient, subscriber_payments_dataset: dict
+):
+    resp = await auth_client.get("/financial/subscribers/overdue-list")
+    assert resp.status_code == 200
+    data = resp.json()
+    names = [s["name"] for s in data]
+    assert "Inadimplente" in names
+
+
+@pytest.mark.asyncio
+async def test_get_overdue_subscribers_list_empty(auth_client: AsyncClient):
+    resp = await auth_client.get("/financial/subscribers/overdue-list")
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+@pytest.mark.asyncio
+async def test_get_overdue_subscribers_requires_admin(operator_client: AsyncClient):
+    resp = await operator_client.get("/financial/subscribers/overdue-list")
+    assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# GET /financial/subscribers/payments-list
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_month_payments_list(
+    auth_client: AsyncClient, subscriber_payments_dataset: dict
+):
+    ds = subscriber_payments_dataset
+    month_str = ds["current_month"].strftime("%Y-%m")
+    resp = await auth_client.get(
+        "/financial/subscribers/payments-list", params={"month": month_str}
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 2
+    assert all(item["subscriber_name"] == "Pagante" for item in data)
+
+
+@pytest.mark.asyncio
+async def test_get_month_payments_list_empty(auth_client: AsyncClient):
+    resp = await auth_client.get(
+        "/financial/subscribers/payments-list", params={"month": "2099-01"}
+    )
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+@pytest.mark.asyncio
+async def test_get_month_payments_requires_admin(operator_client: AsyncClient):
+    resp = await operator_client.get(
+        "/financial/subscribers/payments-list", params={"month": "2026-04"}
+    )
+    assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# GET /financial/revenue/yearly
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_yearly_revenue(auth_client: AsyncClient, entries_dataset: dict):
+    today = entries_dataset["today"]
+    resp = await auth_client.get(
+        "/financial/revenue/yearly", params={"year": today.year}
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 12
+    assert all("month" in row and "current_year" in row and "previous_year" in row for row in data)
+    current_month_row = next(
+        r for r in data if r["month"] == today.strftime("%Y-%m")
+    )
+    assert Decimal(current_month_row["current_year"]) >= Decimal("40.00")
+
+
+@pytest.mark.asyncio
+async def test_get_yearly_revenue_default_year(auth_client: AsyncClient):
+    resp = await auth_client.get("/financial/revenue/yearly")
+    assert resp.status_code == 200
+    assert len(resp.json()) == 12
+
+
+@pytest.mark.asyncio
+async def test_get_yearly_revenue_requires_admin(operator_client: AsyncClient):
+    resp = await operator_client.get("/financial/revenue/yearly", params={"year": 2026})
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_get_yearly_revenue_includes_subscriber_payments(
+    auth_client: AsyncClient,
+    entries_dataset: dict,
+    subscriber_payments_dataset: dict,
+):
+    today = entries_dataset["today"]
+    resp = await auth_client.get(
+        "/financial/revenue/yearly", params={"year": today.year}
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    current_month_row = next(
+        r for r in data if r["month"] == today.strftime("%Y-%m")
+    )
+    # entradas (40.00) + pagamentos de mensalistas (300.00)
+    assert Decimal(current_month_row["current_year"]) >= Decimal("340.00")
+
+
+# ---------------------------------------------------------------------------
+# GET /financial/revenue/hourly
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_hourly_revenue(auth_client: AsyncClient, entries_dataset: dict):
+    today = entries_dataset["today"]
+    resp = await auth_client.get(
+        "/financial/revenue/hourly", params={"ref_date": today.isoformat()}
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 24
+    assert all("hour" in row and "today" in row and "yesterday" in row for row in data)
+
+
+@pytest.mark.asyncio
+async def test_get_hourly_revenue_default_date(auth_client: AsyncClient):
+    resp = await auth_client.get("/financial/revenue/hourly")
+    assert resp.status_code == 200
+    assert len(resp.json()) == 24
+
+
+@pytest.mark.asyncio
+async def test_get_hourly_revenue_requires_admin(operator_client: AsyncClient):
+    resp = await operator_client.get("/financial/revenue/hourly")
     assert resp.status_code == 403

@@ -37,6 +37,18 @@ def test_calcular_valor_one_hour():
     assert calcular_valor(entry_at, exit_at, CONFIG) == Decimal("10.00")
 
 
+def test_calcular_valor_between_30_and_60_minutes():
+    entry_at = datetime(2026, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
+    exit_at = datetime(2026, 1, 1, 10, 45, 0, tzinfo=timezone.utc)
+    assert calcular_valor(entry_at, exit_at, CONFIG) == Decimal("10.00")
+
+
+def test_calcular_valor_two_hours():
+    entry_at = datetime(2026, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
+    exit_at = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    assert calcular_valor(entry_at, exit_at, CONFIG) == Decimal("15.00")
+
+
 def test_calcular_valor_capped_by_daily_rate():
     entry_at = datetime(2026, 1, 1, 8, 0, 0, tzinfo=timezone.utc)
     exit_at = datetime(2026, 1, 1, 20, 0, 0, tzinfo=timezone.utc)
@@ -79,7 +91,7 @@ async def test_exit_with_old_entry_charges_correctly(auth_client: AsyncClient, d
         "/patio/saida", json={"entry_id": entry_id, "payment_method": "dinheiro"}
     )
     assert resp.status_code == 200
-    assert Decimal(resp.json()["amount_charged"]) == Decimal("20.00")
+    assert Decimal(resp.json()["amount_charged"]) == Decimal("15.00")
 
 
 @pytest.mark.asyncio

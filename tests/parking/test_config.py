@@ -76,3 +76,41 @@ async def test_update_empty_body_returns_current_config(auth_client: AsyncClient
     resp = await auth_client.put("/patio/config", json={})
     assert resp.status_code == 200
     assert "hourly_rate" in resp.json()
+
+
+@pytest.mark.asyncio
+async def test_update_config_invalid_rate_string(auth_client: AsyncClient):
+    resp = await auth_client.put("/patio/config", json={"hourly_rate": "abc"})
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_update_config_negative_rate(auth_client: AsyncClient):
+    resp = await auth_client.put("/patio/config", json={"hourly_rate": "-1.00"})
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_update_config_rate_too_large(auth_client: AsyncClient):
+    resp = await auth_client.put("/patio/config", json={"hourly_rate": "10000.00"})
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_update_config_tolerance_out_of_range(auth_client: AsyncClient):
+    resp = await auth_client.put("/patio/config", json={"tolerance_minutes": 61})
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_update_config_half_hour_rate(auth_client: AsyncClient):
+    resp = await auth_client.put("/patio/config", json={"half_hour_rate": "4.00"})
+    assert resp.status_code == 200
+    assert Decimal(resp.json()["half_hour_rate"]) == Decimal("4.00")
+
+
+@pytest.mark.asyncio
+async def test_update_config_additional_hour_rate(auth_client: AsyncClient):
+    resp = await auth_client.put("/patio/config", json={"additional_hour_rate": "8.00"})
+    assert resp.status_code == 200
+    assert Decimal(resp.json()["additional_hour_rate"]) == Decimal("8.00")

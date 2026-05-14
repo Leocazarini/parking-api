@@ -53,7 +53,12 @@ async def db_engine():
         await conn.execute(vehicle_model.insert(), [{"name": m} for m in MODELS])
         await conn.execute(
             parking_config.insert().values(
-                id=1, hourly_rate="10.00", daily_rate="50.00", tolerance_minutes=5
+                id=1,
+                tolerance_minutes=5,
+                half_hour_rate="5.00",
+                hourly_rate="10.00",
+                additional_hour_rate="5.00",
+                daily_rate="50.00",
             )
         )
     yield engine
