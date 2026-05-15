@@ -1,8 +1,9 @@
-docs/
 __pycache__/
 *.pyc
 *.pyo
-.env
+.secrets/
+!.secrets/.env.example
+!.secrets/.env.example.server
 .venv/
 venv/
 *.db
@@ -10,4 +11,5 @@ venv/
 .ruff_cache/
 dist/
 *.egg-info/
+docs/
 *.server*
