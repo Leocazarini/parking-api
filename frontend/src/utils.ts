@@ -24,33 +24,60 @@ export function formatTicket(id: number): string {
 }
 
 /**
- * Força o blur de um input de data no mobile.
+ * Força o blur de um input de data após a seleção.
  *
- * Problema: no iOS Safari, após fechar o picker nativo de data, o input
- * permanece "focado" mesmo que `e.target.blur()` seja chamado — o browser
- * re-foca o input internamente, e ao rolar a página o navegador tenta manter
- * o input focado visível ("scroll into view"), causando o efeito de "snap back".
+ * Problema: após fechar o picker nativo, alguns navegadores (iOS Safari e
+ * também Chrome Android em certos casos) re-focam o input automaticamente.
+ * Com o input focado, o browser tenta mantê-lo visível ("scroll into view"),
+ * causando o efeito de "snap back" quando o usuário tenta rolar a página.
  *
- * Solução: setar `disabled = true` em um input focado FORÇA o browser a desfocar
- * por especificação HTML, e impede que o input seja re-focado enquanto disabled.
- * Restauramos em requestAnimationFrame (1 frame ~16ms) — imperceptível.
+ * Solução em duas camadas:
+ * 1. Disabled trick: setar `disabled = true` em um input focado FORÇA blur
+ *    por spec HTML. Restauramos em requestAnimationFrame (~16ms).
+ * 2. Transferir foco para o body. O `blur()` sozinho não impede o browser
+ *    de re-focar o input; movendo o foco explicitamente para outro
+ *    elemento, deixamos claro que o foco deve ficar fora do input.
+ *    `preventScroll: true` evita que o foco no body cause scroll.
  *
- * Combinamos com tentativas adicionais com setTimeout para cobrir o caso onde
- * o iOS tenta re-focar após o requestAnimationFrame.
+ * Não usamos setTimeouts para re-blurar — eles competem com cliques do
+ * usuário e podem fechar o picker quando ele tenta reabrir.
  */
 export function blurDateInput(el: HTMLInputElement): void {
   el.blur()
-  // Truque do disabled — força blur garantido por spec HTML
+  // Camada 1: truque do disabled — força blur garantido por spec HTML
   el.disabled = true
   requestAnimationFrame(() => {
     el.disabled = false
   })
-  // Safety net: tentativas adicionais caso iOS Safari tente re-focar
-  for (const delay of [50, 150, 350]) {
-    setTimeout(() => {
-      if (document.activeElement === el) {
-        el.blur()
-      }
-    }, delay)
+  // Camada 2: move o foco para body, impedindo re-foco automático no input.
+  // body precisa de tabindex para ser focável; restauramos o estado anterior
+  // no próximo frame para não afetar navegação por teclado.
+  const body = document.body
+  if (!body) return
+  const hadTabIndex = body.hasAttribute('tabindex')
+  if (!hadTabIndex) body.setAttribute('tabindex', '-1')
+  body.focus({ preventScroll: true })
+  if (!hadTabIndex) {
+    requestAnimationFrame(() => body.removeAttribute('tabindex'))
   }
+}
+
+/**
+ * Abre o picker nativo de data ao tocar/clicar no input.
+ *
+ * Anexado em `onFocus` E `onClick` por motivos distintos:
+ * - `onFocus`: cobre o primeiro toque, quando o input ainda não está focado.
+ *   Em alguns browsers (notadamente Chrome Android), o `click` que segue o
+ *   `focus` inicial não consegue abrir o picker de forma confiável.
+ * - `onClick`: cobre os toques seguintes, quando o input já está focado e
+ *   `focus` não dispara de novo (ex: usuário fechou o picker com back e tocou
+ *   no mesmo input).
+ *
+ * Chamadas duplicadas são seguras: `showPicker()` lança em estado inválido
+ * (ex: picker já aberto, sem ativação de usuário), e o `catch` engole.
+ * Navegação por teclado (Tab) não carrega ativação, então o picker não abre
+ * sozinho ao tabular — comportamento desejado no desktop.
+ */
+export function openDatePicker(e: { currentTarget: HTMLInputElement }): void {
+  try { e.currentTarget.showPicker() } catch { /* picker já aberto ou sem ativação */ }
 }

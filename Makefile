@@ -1,4 +1,4 @@
-COMPOSE = docker compose -f docker/docker-compose.yml
+COMPOSE = docker compose -f docker/docker-compose.yml --env-file .secrets/.env
 
 up:
 	$(COMPOSE) up -d

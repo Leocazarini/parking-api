@@ -13,7 +13,7 @@ import type {
   RevenueResponse, DailyRevenueItem, ParkingSummary, SubscriberRevenue,
   HourlyRevenueItem, OverdueSubscriberItem, MonthPaymentDetail, MonthlyRevenueItem,
 } from '../types'
-import { fmtDuration, blurDateInput } from '../utils'
+import { fmtDuration, blurDateInput, openDatePicker } from '../utils'
 
 function fmtBRL(v: string | number) {
   return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -384,11 +384,11 @@ export default function Financial() {
         <div className="filter-date-grid">
           <div className="form-group" style={{ margin: 0 }}>
             <label className="form-label">Data inicial</label>
-            <input type="date" className="form-input" style={{ cursor: 'pointer' }} value={startDate} onChange={(e) => { setStartDate(e.target.value); blurDateInput(e.target as HTMLInputElement) }} onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker() } catch {} }} />
+            <input type="date" className="form-input" style={{ cursor: 'pointer' }} value={startDate} onChange={(e) => { setStartDate(e.target.value); blurDateInput(e.target as HTMLInputElement) }} onFocus={openDatePicker} onClick={openDatePicker} />
           </div>
           <div className="form-group" style={{ margin: 0 }}>
             <label className="form-label">Data final</label>
-            <input type="date" className="form-input" style={{ cursor: 'pointer' }} value={endDate} onChange={(e) => { setEndDate(e.target.value); blurDateInput(e.target as HTMLInputElement) }} onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker() } catch {} }} />
+            <input type="date" className="form-input" style={{ cursor: 'pointer' }} value={endDate} onChange={(e) => { setEndDate(e.target.value); blurDateInput(e.target as HTMLInputElement) }} onFocus={openDatePicker} onClick={openDatePicker} />
           </div>
         </div>
       </div>
@@ -535,7 +535,8 @@ export default function Financial() {
             className="form-input"
             value={month}
             onChange={(e) => { setMonth(e.target.value); blurDateInput(e.target as HTMLInputElement) }}
-            onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker() } catch {} }}
+            onFocus={openDatePicker}
+            onClick={openDatePicker}
             style={{ cursor: 'pointer', width: 'auto', flexShrink: 0, padding: '6px 10px', fontSize: 13 }}
           />
           <div style={{ minWidth: 0, textAlign: 'right' }}>
@@ -591,7 +592,8 @@ export default function Financial() {
             className="form-input"
             value={refDate}
             onChange={(e) => { setRefDate(e.target.value); blurDateInput(e.target as HTMLInputElement) }}
-            onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker() } catch {} }}
+            onFocus={openDatePicker}
+            onClick={openDatePicker}
             style={{ cursor: 'pointer', width: 'auto', flexShrink: 0, padding: '6px 10px', fontSize: 13 }}
           />
           <div style={{ minWidth: 0, textAlign: 'right' }}>

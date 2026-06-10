@@ -6,7 +6,7 @@ import { getActiveSubscribers, registerSubscriberPayment } from '../api/subscrib
 import { StatusBadge } from '../components/StatusBadge'
 import { useToast } from '../hooks/useToast'
 import type { Subscriber } from '../types'
-import { blurDateInput } from '../utils'
+import { blurDateInput, openDatePicker } from '../utils'
 
 function fmtCurrency(digits: string): string {
   const num = parseInt(digits || '0', 10)
@@ -96,7 +96,6 @@ export default function SubscriberPayment() {
               placeholder="Buscar por nome…"
               value={nameSearch}
               onChange={(e) => setNameSearch(e.target.value)}
-              autoFocus
             />
           </div>
 
@@ -177,7 +176,6 @@ export default function SubscriberPayment() {
                     name={field.name}
                     ref={field.ref}
                     onBlur={field.onBlur}
-                    autoFocus
                     onChange={(e) => {
                       const digits = e.target.value.replace(/\D/g, '')
                       const next = digits.replace(/^0+/, '') || ''
@@ -217,7 +215,8 @@ export default function SubscriberPayment() {
                 <input
                   type="month"
                   className={`form-input ${errors.reference_month ? 'error' : ''}`}
-                  onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker() } catch {} }}
+                  onFocus={openDatePicker}
+                  onClick={openDatePicker}
                   {...register('reference_month', { required: 'Obrigatório' })}
                   onChange={(e) => { register('reference_month').onChange(e); blurDateInput(e.target as HTMLInputElement) }}
                 />
@@ -230,7 +229,8 @@ export default function SubscriberPayment() {
                 <input
                   type="date"
                   className={`form-input ${errors.payment_date ? 'error' : ''}`}
-                  onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker() } catch {} }}
+                  onFocus={openDatePicker}
+                  onClick={openDatePicker}
                   {...register('payment_date', { required: 'Obrigatório' })}
                   onChange={(e) => { register('payment_date').onChange(e); blurDateInput(e.target as HTMLInputElement) }}
                 />
